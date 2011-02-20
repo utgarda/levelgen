@@ -18,7 +18,7 @@ class Stage
 
 
   def iterate_solutions(i, line_map, objects)
-   return if @positions.size > 100
+#   return if @positions.size > 1000
     if i == @size**2 - 1
       push_position objects.clone
       return
@@ -99,11 +99,19 @@ class Stage
         columns_filling[x] << y
       end
     end
-    scheme = rows_scheme += columns_scheme
     filling = rows_filling += columns_filling
-    @positions[scheme.freeze] << filling.flatten.freeze
+    @positions[pack_scheme(rows_scheme, columns_scheme)] << filling.flatten.pack("C*")
   end
 
+  def pack_scheme(rows, columns)
+    (rows + columns).map{|x| x.pack "C*"}.join "," #works only if max object length < ?,
+  end
+
+  public
+  def unpack_scheme(p_scheme)
+    scheme = p_scheme.split(/,/).map{|s| s.unpack "C*"}
+    [scheme.slice!(0..@size-1), scheme]
+  end
 
   public
   def fill_line(line_map, type, i, val)
