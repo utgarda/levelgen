@@ -10,15 +10,15 @@ class Stage
     @size       = size
     @array      = Array.new(@size) { [] }
     @proper_map = Array.new(2) { Array.new(@size) { [] } }
-    @types      = [[:e, 0]]
-    object_length_range.each { |i| @types += [[:h, i], [:v, i]] }
+    @types      = [[:e, 0].freeze]
+    object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
     @positions = Hash.new{|h,k| h[k]=[]}
   end
 
 
   def iterate_solutions(i, line_map, objects)
-#    return if @positions.size > 100
+   return if @positions.size > 100
     if i == @size**2 - 1
       push_position objects.clone
       return
@@ -26,8 +26,8 @@ class Stage
     if line_map[i]
       iterate_solutions i+1, line_map, objects
     else
-      @types.each_index { |tn|
-        if push i, tn, line_map, objects
+      @types.each { |t|
+        if push i, t, line_map, objects
           iterate_solutions i+1, line_map, objects
           pop line_map, objects
         end
@@ -44,18 +44,18 @@ class Stage
 
   private
   def push_main(line_map, objects)
-    main_obj_type = @types.index([:h, MAIN_OBJ_LENGTH])
+    main_obj_type = [:h, MAIN_OBJ_LENGTH]
     push @size * (@size / 2 + 1) - MAIN_OBJ_LENGTH, main_obj_type, line_map, objects
   end
 
   private
-  def push(i, type_num, line_map, objects)
+  def push(i, type, line_map, objects)
     return false if line_map[i]
 
-    dir, len = @types[type_num]
+    dir, len = type
 
     if dir == :e
-      objects << type_num << i
+      objects << type << i
       return true
     end
 
@@ -67,17 +67,17 @@ class Stage
     len.times do |k| 
       return if line_map[i + k * (dir == :h ? 1 : @size)]
     end
-    objects << type_num << i
-    fill_line line_map, type_num, i, true
+      objects << type << i
+    fill_line line_map, type, i, true
     true
   end
 
   private
   def pop(line_map, objects)
-    type_num, i   = objects.pop 2
-    dir = @types[type_num][0]
+    type, i   = objects.pop 2
+    dir = type[0]
     return if dir == :e
-    fill_line line_map, type_num, i, false
+    fill_line line_map, type, i, false
   end
 
   def push_position(objects)
@@ -86,8 +86,8 @@ class Stage
     rows_filling = Array.new(@size){[]}
     columns_filling = Array.new(@size){[]}
     while objects.size > 0 do
-      type_num, i   = objects.pop 2
-      dir,len = @types[type_num]
+      type, i   = objects.pop 2
+      dir,len = type
       next if dir == :e
       y = i / @size
       x = i % @size
@@ -106,8 +106,8 @@ class Stage
 
 
   public
-  def fill_line(line_map, type_num, i, val)
-    dir, len = @types[type_num]
+  def fill_line(line_map, type, i, val)
+    dir, len = type
     len.times { |k| line_map[i + k * (dir == :h ? 1 : @size)] = val }
   end
 

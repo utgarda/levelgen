@@ -17,19 +17,12 @@ module TerminalOutput
 
   def show_position(stage, scheme, filling, empty_space = "*")
     line_map = Array.new stage.size**2, empty_space
-#    while objects.size > 0
-#      type_num, i = objects.pop 2
-#      dir = stage.types[type_num][0]
-#      if dir != :e
-#        stage.fill_line line_map, type_num, i, dir == :h ? "~" : "i"
-#      end
-#    end
    scheme.each_index do |i|
      scheme[i].each do |len|
        pos = filling.shift
-       type_num = stage.types.index [i<stage.size ? :h : :v, len]
+       type = [i<stage.size ? :h : :v, len]
        k = i<stage.size ? i * stage.size + pos : (pos-1)* stage.size + i
-       stage.fill_line line_map, type_num, k, i < stage.size ? "~" : "i"
+       stage.fill_line line_map, type, k, i < stage.size ? "~" : "i"
      end
    end
 
