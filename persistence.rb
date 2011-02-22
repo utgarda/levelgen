@@ -1,8 +1,10 @@
 require 'redis'
 
 module Persistence
-  def self.init
-    $redis = Redis.new
+  def self.init(options = nil)
+    $redis = options && options[:socket] ?
+        Redis.new(:path => options[:socket], :timeout => 100) :
+        Redis.new(:timeout => 100)
   end
 
   def self.add_solution(p_scheme, p_filling)
