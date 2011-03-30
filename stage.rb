@@ -1,13 +1,14 @@
-require 'persistence'
+#require 'persistence'
 
 class Stage
   MAIN_OBJ_LENGTH = 2
+  MAX_EMPTY_CELLS = 10
 
   attr_reader :size
   attr_reader :types
   attr_reader :positions
 
-  def initialize(size, object_length_range)
+  def initialize(size, object_length_range, cache)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
     @array      = Array.new(@size) { [] }
@@ -15,20 +16,23 @@ class Stage
     @types      = [[:e, 0].freeze]
     object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
+    @cache      = cache
+#    Struct.new("State", :i, :line_map, :objects, :empty_cells)
   end
 
 
-  def iterate_solutions(i, line_map, objects)
+  def iterate_solutions(i, empty_cells, line_map, objects)
+    return if empty_cells > MAX_EMPTY_CELLS
     if i == @size**2 - 1
       push_position objects.clone
       return
     end
     if line_map[i]
-      iterate_solutions i+1, line_map, objects
+      iterate_solutions i+1, empty_cells, line_map, objects
     else
       @types.each { |t|
         if push i, t, line_map, objects
-          iterate_solutions i+1, line_map, objects
+          iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), line_map, objects
           pop line_map, objects
         end
       }
@@ -67,6 +71,9 @@ class Stage
     len.times do |k|
       return if line_map[i + k * (dir == :h ? 1 : @size)]
     end
+    #other constraints
+
+
     objects << type << i
     fill_line line_map, type, i, true
     true
@@ -99,17 +106,24 @@ class Stage
         columns_filling[x] << y
       end
     end
-    Persistence::add_solution pack_scheme(rows_scheme, columns_scheme),
-                              (rows_filling + columns_filling).flatten.pack("C*")
+    @cache.store pack_scheme(rows_scheme, columns_scheme),
+                 pack_filling(rows_filling, columns_filling)
+#                              (rows_filling + columns_filling).flatten.pack("C*")
   end
 
   def pack_scheme(rows, columns)
-    (rows + columns).map { |x| x.pack "C*" }.join "," #works only if max object length < ?,
+#    (rows + columns).map { |x| x.pack "C*" }.join "," #works only if max object length < ?,
+    (rows + columns).map { |x| x.join }.join ","
+  end
+
+  def pack_filling(rows, columns)
+    (rows + columns).join
   end
 
   public
   def unpack_scheme(p_scheme)
-    scheme = p_scheme.split(/,/).map { |s| s.unpack "C*" }
+#    scheme = p_scheme.split(/,/).map { |s| s.unpack "C*" }
+    scheme = p_scheme.split(/,/).map { |s| s.split // }
     [scheme.slice!(0..@size-1), scheme]
   end
 

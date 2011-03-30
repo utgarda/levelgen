@@ -12,6 +12,8 @@ module Persistence
     $redis.sadd p_scheme, p_filling
   end
 
+#  def self.store_list(p_scheme)
+
   def self.get_solution_schemes
     $redis.smembers :solutions
   end
