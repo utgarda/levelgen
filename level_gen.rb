@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 require 'optparse'
 require 'terminal_output'
-require 'stage'
+require 'stage_dp'
 #require 'persistence'
 require 'cache'
 
@@ -20,13 +20,14 @@ begin
     end
   end.parse!
 
-  init(options[:size])
+  #init(options[:size])
 #  Persistence::init(options)
 
-  wgetch(@inner_win)
+  #wgetch(@inner_win)
 
   cache = Cache.new
-  stage = Stage.new options[:size], 2..(options[:size]-1), cache
+  stage = StageDP.new options[:size], 2..(options[:size]-1), cache
+  #stage = StageDP.new options[:size], 2..2, cache
 
   line_map, objects = stage.trivial_solution
   stage.iterate_solutions 0, 0, line_map, objects
@@ -41,7 +42,7 @@ begin
 #rescue Object => e
 #  endwin
 #  puts e
-ensure
-  endwin
+#ensure
+#  endwin
 end
 

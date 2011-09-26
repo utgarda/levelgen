@@ -1,42 +1,65 @@
 #require 'persistence'
 
-class Stage
+class StageDP
   MAIN_OBJ_LENGTH = 2
-  MAX_EMPTY_CELLS = 10
+  MAX_EMPTY_CELLS = 1
 
   attr_reader :size
   attr_reader :types
   attr_reader :positions
+
+  class PartialSolution
+    attr_reader :count
+    def initialize(branch_map = {})
+      @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
+      @count = @branches.empty? ? 1 : @branch_map.values.map(&:count).reduce(:+)
+    end
+  end
 
   def initialize(size, object_length_range, cache)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
     @line_map_size = @size**2
     @array      = Array.new(@size) { [] }
-    @proper_map = Array.new(2) { Array.new(@size) { [] } }
+    #@proper_map = Array.new(2) { Array.new(@size) { [] } }
     @types      = [[:e, 0].freeze]
     object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
     @cache      = cache
+    @outline_to_solution = {(@line_map_size - 1) => PartialSolution.new}
 #    Struct.new("State", :i, :line_map, :objects, :empty_cells)
   end
 
+  def line_map_to_number(i, line_map)
+    (line_map[i+1..-1].inject(0){|binary, cell| (cell ? 1 : 0) + (binary << 1)} << 8) + i
+  end
 
   def iterate_solutions(i, empty_cells, line_map, objects)
-    return if empty_cells > MAX_EMPTY_CELLS
-    if i == @line_map_size - 1
-      push_position objects.clone
-      return
-    end
-    if line_map[i]
-      iterate_solutions i+1, empty_cells, line_map, objects
-    else
-      @types.each { |t|
-        if push i, t, line_map, objects
+    outline_code = line_map_to_number(i, line_map)
+
+     if @outline_to_solution.has_key? outline_code
+       #puts "+"
+       @outline_to_solution[outline_code]
+     #elsif i == @line_map_size # - 1
+     # #return if empty_cells > MAX_EMPTY_CELLS
+     # #@outline_to_solution[i, line_map]
+     # puts "Error: cell number #{i} actually reached"
+     # #push_position objects.clone
+     # exit
+     elsif line_map[i]
+       #puts "--"
+      #@outline_to_solution[outline_code] =
+          iterate_solutions i+1, empty_cells, line_map, objects
+     else
+       #puts "New outline: i = #{i} , code = #{outline_code}, total outlines: #{@outline_to_solution.keys.size}"
+       puts "i = #{i}" #" , total outlines: #{@outline_to_solution.keys.size}"
+       @types.each { |t|
+        if ( (t[0]!=:e) || (empty_cells<MAX_EMPTY_CELLS)) && (push i, t, line_map, objects)
           iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), line_map, objects
           pop line_map, objects
         end
       }
+       @outline_to_solution[outline_code] = PartialSolution.new #TODO
     end
   end
 
