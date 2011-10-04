@@ -20,14 +20,16 @@ begin
     end
   end.parse!
 
-  #init(options[:size])
+  init_ncurses(options[:size])
 #  Persistence::init(options)
 
-  #wgetch(@inner_win)
+  pause
+  
 
   cache = Cache.new
-  stage = StageDP.new options[:size], 2..(options[:size]-1), cache
-  #stage = StageDP.new options[:size], 2..2, cache
+  #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
+  #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
+  stage = StageDP.new options[:size], 2..2, cache
 
   line_map, objects = stage.trivial_solution
   stage.iterate_solutions 0, 0, line_map, objects
@@ -38,11 +40,11 @@ begin
 #      show_position stage, scheme, p_filling.unpack("C*")
 #    end
 #  end
-
-#rescue Object => e
-#  endwin
-#  puts e
-#ensure
-#  endwin
+pause
+rescue Object => e
+ endwin
+ puts e
+ensure
+ endwin
 end
 

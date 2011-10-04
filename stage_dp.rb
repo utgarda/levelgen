@@ -1,7 +1,8 @@
 #require 'persistence'
+require 'terminal_output'
 
 class StageDP
-  MAIN_OBJ_LENGTH = 2
+  MAIN_OBJ_LENGTH = 3
   MAX_EMPTY_CELLS = 1
 
   attr_reader :size
@@ -30,25 +31,29 @@ class StageDP
     #(@line_map_size - 1).times{trivial_outline+=1; trivial_outline = trivial_outline << 1}
     #trivial_outline +=1
     #puts trivial_outline
-    @outline_to_solution = { @line_map_size - 1   => PartialSolution.new}
-    puts "end_outline = #{(@line_map_size-1).to_s(2)}"
+#    @outline_to_solution = { @line_map_size - 1   => PartialSolution.new}
+    @outline_to_solution = { @line_map_size   => PartialSolution.new}
+    # puts "end_outline = #{(@line_map_size-1).to_s(2)}"
     @shortest_outline = @line_map_size
 #    Struct.new("State", :i, :line_map, :objects, :empty_cells)
   end
 
   def line_map_to_number(i, line_map)
     #(line_map[i+1..-1].inject(0){|binary, cell| (cell ? 1 : 0) + (binary << 1)} << 8) + i
-    ((line_map >> (i+1)) << 8) + i
+    ((line_map >> (i)) << 8) + i
   end
 
   def iterate_solutions(i, empty_cells, line_map, objects)
     outline_code = line_map_to_number(i, line_map)
+    show_outline outline_code
+    # pause
     #puts "\niteration: i = #{i}\nline_map =     #{line_map.to_s(2)}\noutline_code = #{outline_code.to_s(2)}"
      if @outline_to_solution.has_key? outline_code
        #puts "+"
        @outline_to_solution[outline_code]
      elsif i == @line_map_size # - 1
        puts "Error: cell number #{i} actually reached"
+      pause
        exit
      # #return if empty_cells > MAX_EMPTY_CELLS
      # #@outline_to_solution[i, line_map]
@@ -69,7 +74,7 @@ class StageDP
         end
       }
        @outline_to_solution[outline_code] = PartialSolution.new #TODO
-       (@shortest_outline = i; puts "shortest = #{@shortest_outline}") if i < @shortest_outline
+       # (@shortest_outline = i; puts "shortest = #{@shortest_outline}") if i < @shortest_outline
     end
   end
 
@@ -82,7 +87,7 @@ class StageDP
 
   private
   def push_main(line_map, objects)
-    puts "--------push_main"
+    # puts "--------push_main"
     main_obj_type = [:h, MAIN_OBJ_LENGTH]
     push @size * (@size / 2 + 1) - MAIN_OBJ_LENGTH, main_obj_type, line_map, objects
   end
@@ -164,9 +169,12 @@ class StageDP
 
   public
   def fill_line(line_map, cell_nums)
-    prev = 0
-    mask = cell_nums.inject(0) {|sum, n| nxt_sum = (sum + 1) << (n - prev); prev = n; nxt_sum }
-    line_map | mask
+    cell_nums.each{|x| line_map|=(1<<x)}
+    line_map
+#    prev = 0
+#    new_digit = 1 << (@line_map_size)
+#    mask = cell_nums.inject(0) {|sum, n| nxt_sum = (sum + new_digit) >> (n - prev); prev = n; nxt_sum }
+#    line_map | mask
     #line_map ^ mask if !val # consider removing
   end
 
