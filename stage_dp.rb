@@ -13,15 +13,17 @@ class StageDP
     attr_reader :count
     def initialize(branch_map = {})
       @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
-      @count = @branches.empty? ? 1 : @branch_map.values.map(&:count).reduce(:+)
+      @count = @branches.empty? ? 1 : @branch_map.values.map(&:count).reduce(:+)      
     end
   end
 
   def initialize(size, object_length_range, cache)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
+    empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
+    
     @line_map_size = @size**2
-    @array      = Array.new(@size) { [] }
+    #@array      = Array.new(@size) { [] }
     #@proper_map = Array.new(2) { Array.new(@size) { [] } }
     @types      = [[:e, 0].freeze]
     object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
@@ -32,7 +34,7 @@ class StageDP
     #trivial_outline +=1
     #puts trivial_outline
 #    @outline_to_solution = { @line_map_size - 1   => PartialSolution.new}
-    @outline_to_solution = { @line_map_size   => PartialSolution.new}
+    @outline_to_solution = { @line_map_size   => PartialSolution.new({empty_scheme => nil})}
     # puts "end_outline = #{(@line_map_size-1).to_s(2)}"
     @shortest_outline = @line_map_size
 #    Struct.new("State", :i, :line_map, :objects, :empty_cells)
@@ -153,7 +155,7 @@ class StageDP
 
   def pack_scheme(rows, columns)
 #    (rows + columns).map { |x| x.pack "C*" }.join "," #works only if max object length < ?,
-    (rows + columns).map { |x| x.join }.join ","
+    (rows + columns).map { |x| x.join }.join(",").to_sym
   end
 
   def pack_filling(rows, columns)
@@ -163,7 +165,7 @@ class StageDP
   public
   def unpack_scheme(p_scheme)
 #    scheme = p_scheme.split(/,/).map { |s| s.unpack "C*" }
-    scheme = p_scheme.split(/,/).map { |s| s.split // }
+    scheme = p_scheme.to_s.split(/,/).map { |s| s.split // }
     [scheme.slice!(0..@size-1), scheme]
   end
 
