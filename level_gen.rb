@@ -46,5 +46,7 @@ rescue Object => e
  puts e
 ensure
  endwin
+ #require 'pp'
+ #pp stage.outline_to_solution[stage.outline_to_solution.keys[100]]
 end
 

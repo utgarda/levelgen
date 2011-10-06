@@ -8,12 +8,15 @@ class StageDP
   attr_reader :size
   attr_reader :types
   attr_reader :positions
+  attr_reader :outline_to_solution
 
   class PartialSolution
-    attr_reader :count
-    def initialize(branch_map = {})
+    attr_reader :count, :branches
+    
+    def initialize(i, branch_map = {})
+      @i = i
       @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
-      @count = @branches.empty? ? 1 : @branch_map.values.map(&:count).reduce(:+)      
+      @count = (@branches.values == [nil]) ? 1 : @branches.values.map(&:count).reduce(:+)      
     end
   end
 
@@ -34,7 +37,7 @@ class StageDP
     #trivial_outline +=1
     #puts trivial_outline
 #    @outline_to_solution = { @line_map_size - 1   => PartialSolution.new}
-    @outline_to_solution = { @line_map_size   => PartialSolution.new({empty_scheme => nil})}
+    @outline_to_solution = { @line_map_size   => PartialSolution.new(@line_map_size, {empty_scheme => nil})}
     # puts "end_outline = #{(@line_map_size-1).to_s(2)}"
     @shortest_outline = @line_map_size
 #    Struct.new("State", :i, :line_map, :objects, :empty_cells)
@@ -69,13 +72,27 @@ class StageDP
      else
        #puts "New outline: i = #{i} , code = #{outline_code}, total outlines: #{@outline_to_solution.keys.size}"
        #puts "i = #{i}" if @outline_to_solution.size % 1000 == 0 #" , total outlines: #{@outline_to_solution.keys.size}"
+       ss_map = {}
        @types.each { |t|
         if ( (t[0]!=:e) || (empty_cells<MAX_EMPTY_CELLS)) && (next_line_map = push i, t, line_map, objects)
-          iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), next_line_map, objects
+          sub_solution = iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), next_line_map, objects
+          sub_solution.branches.each_key do |sub_scheme|
+            s = add_object_to_scheme i, t, sub_scheme
+
+#            endwin
+#            puts "YES"
+#            require 'pp'
+#            pp ss_map
+#            pp s
+#            exit
+            
+            ss_map[s]||={}
+            ss_map[s][t] = [sub_solution, sub_scheme]
+          end                                
           objects.pop 2
         end
       }
-       @outline_to_solution[outline_code] = PartialSolution.new #TODO
+       @outline_to_solution[outline_code] = PartialSolution.new(i, ss_map)
        # (@shortest_outline = i; puts "shortest = #{@shortest_outline}") if i < @shortest_outline
     end
   end
@@ -121,14 +138,6 @@ class StageDP
     end
   end
 
-  #private
-  #def pop(line_map, objects)
-  #  type, i = objects.pop 2
-  #  #dir = type[0]
-  #  #return if dir == :e
-  #  #fill_line line_map, type, i, false
-  #end
-
   def push_position(objects)
     rows_scheme     = Array.new(@size) { [] }
     columns_scheme  = Array.new(@size) { [] }
@@ -150,12 +159,10 @@ class StageDP
     end
     @cache.store pack_scheme(rows_scheme, columns_scheme),
                  pack_filling(rows_filling, columns_filling)
-#                              (rows_filling + columns_filling).flatten.pack("C*")
   end
 
   def pack_scheme(rows, columns)
-#    (rows + columns).map { |x| x.pack "C*" }.join "," #works only if max object length < ?,
-    (rows + columns).map { |x| x.join }.join(",").to_sym
+    (rows + columns).map { |x| (x || []).join }.join(",").to_sym
   end
 
   def pack_filling(rows, columns)
@@ -164,21 +171,26 @@ class StageDP
 
   public
   def unpack_scheme(p_scheme)
-#    scheme = p_scheme.split(/,/).map { |s| s.unpack "C*" }
-    scheme = p_scheme.to_s.split(/,/).map { |s| s.split // }
+    scheme = p_scheme.to_s.split(/,/).map { |s| s ? (s.split //): [] }
     [scheme.slice!(0..@size-1), scheme]
+  end
+  
+  def add_object_to_scheme(i, type, scheme)
+    dir, len = type
+    return scheme if dir == :e
+    y = i / @size
+    x = i % @size    
+    rows, columns = unpack_scheme(scheme)
+    rows ||= []
+    columns ||= []    
+    (dir == :h ? (rows[y]||=[]) : (columns[x]||=[])).unshift len
+    pack_scheme rows, columns
   end
 
   public
   def fill_line(line_map, cell_nums)
     cell_nums.each{|x| line_map|=(1<<x)}
     line_map
-#    prev = 0
-#    new_digit = 1 << (@line_map_size)
-#    mask = cell_nums.inject(0) {|sum, n| nxt_sum = (sum + new_digit) >> (n - prev); prev = n; nxt_sum }
-#    line_map | mask
-    #line_map ^ mask if !val # consider removing
   end
 
-#
 end
