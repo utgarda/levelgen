@@ -1,9 +1,9 @@
 #require 'persistence'
-require 'terminal_output'
+require './terminal_output.rb'
 
 class StageDP
   MAIN_OBJ_LENGTH = 3
-  MAX_EMPTY_CELLS = 1
+  MAX_EMPTY_CELLS = 100
 
   attr_reader :size
   attr_reader :types
@@ -11,36 +11,31 @@ class StageDP
   attr_reader :outline_to_solution
 
   class PartialSolution
-    attr_reader :count, :branches
+    attr_reader :i, :count, :branches
     
     def initialize(i, branch_map = {})
       @i = i
       @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
-      @count = (@branches.values == [nil]) ? 1 : @branches.values.map(&:count).reduce(:+)      
+      @count = (@branches.values == [nil]) ? 1 : @branches.values.map(&:count).reduce(:+)
+      puts "new partial solution created : count = #{@count}"
     end
   end
 
   def initialize(size, object_length_range, cache)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
-    empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
+    @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
+    @trivialSolution = trivial_solution
+    @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
     
     @line_map_size = @size**2
-    #@array      = Array.new(@size) { [] }
-    #@proper_map = Array.new(2) { Array.new(@size) { [] } }
     @types      = [[:e, 0].freeze]
     object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
     @cache      = cache
-    trivial_outline = 0
-    #(@line_map_size - 1).times{trivial_outline+=1; trivial_outline = trivial_outline << 1}
-    #trivial_outline +=1
-    #puts trivial_outline
-#    @outline_to_solution = { @line_map_size - 1   => PartialSolution.new}
-    @outline_to_solution = { @line_map_size   => PartialSolution.new(@line_map_size, {empty_scheme => nil})}
-    # puts "end_outline = #{(@line_map_size-1).to_s(2)}"
-    @shortest_outline = @line_map_size
-#    Struct.new("State", :i, :line_map, :objects, :empty_cells)
+    @trivialPartial = PartialSolution.new(@line_map_size, {@trivialSolutionScheme => nil})
+    @trivialOutline = @line_map_size
+    @outline_to_solution = { @trivialOutline   => @trivialPartial}
   end
 
   def line_map_to_number(i, line_map)
@@ -49,10 +44,12 @@ class StageDP
   end
 
   def iterate_solutions(i, empty_cells, line_map, objects)
+
+    require 'pp'
+
     outline_code = line_map_to_number(i, line_map)
-    show_outline outline_code
+    # show_outline outline_code
     # pause
-    #puts "\niteration: i = #{i}\nline_map =     #{line_map.to_s(2)}\noutline_code = #{outline_code.to_s(2)}"
      if @outline_to_solution.has_key? outline_code
        #puts "+"
        @outline_to_solution[outline_code]
@@ -60,11 +57,6 @@ class StageDP
        puts "Error: cell number #{i} actually reached"
       pause
        exit
-     # #return if empty_cells > MAX_EMPTY_CELLS
-     # #@outline_to_solution[i, line_map]
-     # puts "Error: cell number #{i} actually reached"
-     # #push_position objects.clone
-     # exit
      elsif 1 == line_map[i]
        #puts "--"
       #@outline_to_solution[outline_code] =
@@ -73,27 +65,21 @@ class StageDP
        #puts "New outline: i = #{i} , code = #{outline_code}, total outlines: #{@outline_to_solution.keys.size}"
        #puts "i = #{i}" if @outline_to_solution.size % 1000 == 0 #" , total outlines: #{@outline_to_solution.keys.size}"
        ss_map = {}
-       @types.each { |t|
-        if ( (t[0]!=:e) || (empty_cells<MAX_EMPTY_CELLS)) && (next_line_map = push i, t, line_map, objects)
-          sub_solution = iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), next_line_map, objects
-          sub_solution.branches.each_key do |sub_scheme|
-            s = add_object_to_scheme i, t, sub_scheme
-
-#            endwin
-#            puts "YES"
-#            require 'pp'
-#            pp ss_map
-#            pp s
-#            exit
-            
-            ss_map[s]||={}
-            ss_map[s][t] = [sub_solution, sub_scheme]
-          end                                
-          objects.pop 2
-        end
-      }
-       @outline_to_solution[outline_code] = PartialSolution.new(i, ss_map)
-       # (@shortest_outline = i; puts "shortest = #{@shortest_outline}") if i < @shortest_outline
+       @types.each do |t|
+         unless  t[0]==:e && empty_cells >= MAX_EMPTY_CELLS
+           next_line_map = push i, t, line_map, objects
+           if next_line_map
+             sub_solution = iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), next_line_map, objects
+             sub_solution.branches.each_key do |sub_scheme|
+               s = add_object_to_scheme i, t, sub_scheme
+               ss_map[s]||={}
+               ss_map[s][t] = [sub_solution, sub_scheme]
+             end
+           end
+           objects.pop 2
+         end
+       end
+       @outline_to_solution[outline_code] = ss_map.empty? ? @trivialPartial : PartialSolution.new(i, ss_map)
     end
   end
 
@@ -185,6 +171,25 @@ class StageDP
     columns ||= []    
     (dir == :h ? (rows[y]||=[]) : (columns[x]||=[])).unshift len
     pack_scheme rows, columns
+  end
+
+  def objectsMapToScheme(objects)
+    objects = objects.clone
+    rows_scheme     = Array.new(@size) { [] }
+    columns_scheme  = Array.new(@size) { [] }
+    while objects.size > 0 do
+      type, i = objects.pop 2
+      dir, len = type
+      next if dir == :e
+      y = i / @size
+      x = i % @size
+      if dir == :h
+        rows_scheme[y] << len
+      else
+        columns_scheme[x] << len
+      end
+    end
+    pack_scheme rows_scheme, columns_scheme
   end
 
   public

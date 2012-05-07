@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 require 'optparse'
-require 'terminal_output'
-require 'stage_dp'
+require './terminal_output.rb'
+require './stage_dp.rb'
 #require 'persistence'
-require 'cache'
+require './cache.rb'
 
 include TerminalOutput
 
@@ -20,7 +20,7 @@ begin
     end
   end.parse!
 
-  init_ncurses(options[:size])
+#  init_ncurses(options[:size])
 #  Persistence::init(options)
 
   pause
@@ -29,10 +29,10 @@ begin
   cache = Cache.new
   #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
   #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
-  stage = StageDP.new options[:size], 2..2, cache
+  stage = StageDP.new options[:size], 6..7, cache
 
   line_map, objects = stage.trivial_solution
-  stage.iterate_solutions 0, 0, line_map, objects
+  top_solution = stage.iterate_solutions 0, 0, line_map, objects
 
 #  Persistence::get_solution_schemes.each do |p_scheme|
 #    scheme = stage.unpack_scheme(p_scheme)
@@ -42,11 +42,12 @@ begin
 #  end
 pause
 rescue Object => e
- endwin
+# endwin
  puts e
 ensure
- endwin
- #require 'pp'
- #pp stage.outline_to_solution[stage.outline_to_solution.keys[100]]
+# endwin
+ require 'pp'
+ #pp stage.outline_to_solution[25].branches.keys
+ pp top_solution.branches.keys
 end
 
