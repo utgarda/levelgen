@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
 require 'optparse'
 require './terminal_output.rb'
 require './stage_dp.rb'
@@ -29,9 +30,9 @@ begin
   cache = Cache.new
   #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
   #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
-  stage = StageDP.new options[:size], 6..7, cache
+  stage = StageDP.new options[:size], 4..4, cache
 
-  line_map, objects = stage.trivial_solution
+  line_map, objects = stage.composeTrivialSolution
   top_solution = stage.iterate_solutions 0, 0, line_map, objects
 
 #  Persistence::get_solution_schemes.each do |p_scheme|
@@ -48,6 +49,8 @@ ensure
 # endwin
  require 'pp'
  #pp stage.outline_to_solution[25].branches.keys
- pp top_solution.branches.keys
+  scheme = top_solution.branches.keys[5]
+  pp "Scheme: #{scheme}"
+  top_solution.collectPositions(scheme, stage.trivialSolution[1]){|x| renderObjects stage.size, x}
 end
 

@@ -8,24 +8,72 @@ class StageDP
   attr_reader :size
   attr_reader :types
   attr_reader :positions
+  attr_reader :trivialSolution
   attr_reader :outline_to_solution
 
   class PartialSolution
     attr_reader :i, :count, :branches
     
     def initialize(i, branch_map = {})
+      if i == 25 && branch_map == {}
+        puts "Wrong trivial created"
+        1 / 0
+      end
       @i = i
       @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
-      @count = (@branches.values == [nil]) ? 1 : @branches.values.map(&:count).reduce(:+)
+      @count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
       puts "new partial solution created : count = #{@count}"
     end
+
+    def trivial?
+      @branches.values == [nil]
+    end
+
+    def collectPositions(scheme, objects, &block)
+      #puts "collectPositions(#{scheme}   ,    #{objects})"
+      #puts "i = #{i}"
+      #puts " branches[scheme] : ----------------------------"
+      #puts branches[scheme]
+      #puts
+      if trivial?
+        #puts "Trivial! ---------------------------------------------"
+        yield objects, scheme
+      else
+
+        #puts "branches[scheme].values: -----------------------"
+        #pp branches[scheme].values
+        #puts "-------------------------------"
+
+        #branches[scheme].each do |type,subSolution, subScheme|
+      #  puts
+      #  puts "type: #{type}"
+      #  puts "subSolution.count:"
+      #  pp  subSolution.count
+      #  puts "subScheme:"
+      #  pp subScheme
+      #end
+      #return
+        branches[scheme].each do |type, subSolutionSubScheme|
+          subSolution, subScheme = subSolutionSubScheme
+          #puts
+          #puts "type: #{type}"
+          #puts "subSolution:"
+          #puts  subSolution
+          #puts "subScheme:" + subScheme
+          objects << type << i
+          subSolution.collectPositions(subScheme, objects, &block)
+          objects.pop 2
+        end
+      end
+    end
+
   end
 
   def initialize(size, object_length_range, cache)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
     @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
-    @trivialSolution = trivial_solution
+    @trivialSolution = composeTrivialSolution
     @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
     
     @line_map_size = @size**2
@@ -83,7 +131,7 @@ class StageDP
     end
   end
 
-  def trivial_solution
+  def composeTrivialSolution
     line_map = 0 #Array.new(@size**2, false)
     objects  = []
     line_map = push_main line_map, objects
@@ -177,7 +225,7 @@ class StageDP
     objects = objects.clone
     rows_scheme     = Array.new(@size) { [] }
     columns_scheme  = Array.new(@size) { [] }
-    while objects.size > 0 do
+    until objects.empty? do
       type, i = objects.pop 2
       dir, len = type
       next if dir == :e
@@ -197,5 +245,4 @@ class StageDP
     cell_nums.each{|x| line_map|=(1<<x)}
     line_map
   end
-
 end

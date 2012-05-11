@@ -1,3 +1,4 @@
+# encoding: utf-8
 module TerminalOutput
   require 'rubygems'
   require 'ffi-ncurses'
@@ -33,7 +34,24 @@ module TerminalOutput
     wrefresh $inner_win
     #wgetch @inner_win
   end
-  
+
+  def renderObjects(size, objects, emptyCell="*")
+    lineMap = Array.new size**2, emptyCell
+    objects = objects.clone
+    until objects.empty?
+      type, i = objects.pop 2
+      filler = (horizontal = :h == type[0]) ? '~' : 'i'
+      type[1].times do |x|
+        lineMap[ i + x * (horizontal ? 1 : size)] = filler
+      end
+    end
+    puts "╔#{'═'*size}╗"
+    until lineMap.empty?
+      puts "║#{lineMap.pop(size).join}║"
+    end
+    puts "╚#{'═'*size}╝"
+  end
+
   def show_position(stage, scheme, filling, empty_space = "*")
     line_map = Array.new stage.size**2, empty_space
     rows, columns = scheme
