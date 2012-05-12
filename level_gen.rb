@@ -2,7 +2,7 @@
 # encoding: utf-8
 require 'optparse'
 require './terminal_output.rb'
-require './stage_dp.rb'
+require './stage.rb'
 #require 'persistence'
 require './cache.rb'
 
@@ -30,7 +30,7 @@ begin
   cache = Cache.new
   #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
   #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
-  stage = StageDP.new options[:size], 4..4, cache
+  stage = Stage.new options[:size], 4..4, cache
 
   line_map, objects = stage.composeTrivialSolution
   top_solution = stage.iterate_solutions 0, 0, line_map, objects
