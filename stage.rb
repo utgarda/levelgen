@@ -15,15 +15,10 @@ class Stage
   class PartialSolution
     attr_reader :i, :count, :branches
     
-    def initialize(i, branch_map = {})
-      if i == 25 && branch_map == {}
-        puts "Wrong trivial created"
-        1 / 0
-      end
+    def initialize(i, branch_map)
       @i = i
       @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
       @count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
-      puts "new partial solution created : count = #{@count}"
     end
 
     def trivial?
@@ -73,22 +68,25 @@ class Stage
   def initialize(size, objectLengthRange)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
-    @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
-    @trivialSolution = composeTrivialSolution
-    @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
-    
+
     @line_map_size = @size**2
-    @types      = Set.new [[:e, 0].freeze]
+    @emptyCell = [:e, 0].freeze
+    @mainObject = [:h, MAIN_OBJ_LENGTH].freeze
+    @types      = Set.new [@emptyCell, @mainObject]
     objectLengthRange.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
+
+    @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
+    @trivialSolution = composeTrivialSolution().freeze
+    @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
+    
     @trivialPartial = PartialSolution.new(@line_map_size, {@trivialSolutionScheme => nil})
     @trivialOutline = @line_map_size
     @outline_to_solution = { @trivialOutline   => @trivialPartial}
   end
 
-  def line_map_to_number(i, line_map)
-    #(line_map[i+1..-1].inject(0){|binary, cell| (cell ? 1 : 0) + (binary << 1)} << 8) + i
-    ((line_map >> (i)) << 8) + i
+  def line_map_to_number(i, lineMap)
+    ((lineMap >> (i)) << 8) + i
   end
 
   def iterate_solutions(i, empty_cells, line_map, objects)
@@ -132,30 +130,18 @@ class Stage
   end
 
   def composeTrivialSolution
-    line_map = 0 #Array.new(@size**2, false)
     objects  = []
-    line_map = push_main line_map, objects
-    [line_map, objects]
-  end
-
-  private
-  def push_main(line_map, objects)
-    # puts "--------push_main"
-    main_obj_type = [:h, MAIN_OBJ_LENGTH]
-    push @size * (@size / 2 + 1) - MAIN_OBJ_LENGTH, main_obj_type, line_map, objects
+    lineMap = push @size * (@size / 2 + 1) - MAIN_OBJ_LENGTH, @mainObject, 0, objects
+    [lineMap, objects]
   end
 
   private
   def push(i, type, line_map, objects)
-    #return false if line_map[i]
-    #puts "---push, i = #{i}, type=#{type}, line_map = #{line_map}"
-
     if 1 == line_map[i]
       #puts "push: returning nil,  #{i} taken"
       nil
     elsif (dir, len = type; dir == :e)
       objects << type << i
-      #puts "push : returning #{line_map}"
       line_map
     elsif (y = i / @size; x = i % @size; (dir == :h ? x : y) + len > @size) #check if the object fits inside the rectangle
       #puts "push : returning nil, out of the rectangle"
