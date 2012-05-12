@@ -21,6 +21,10 @@ describe Stage do
     its(:size){ should == size}
     its(:types){ should == generatedTypes}
     its(:trivialSolution){ should == [trivialLineMap, [[:h, Stage::MAIN_OBJ_LENGTH],12]]}
+    its(:trivialSolutionScheme){
+      scheme = Array.new 10
+      scheme[3] = Stage::MAIN_OBJ_LENGTH
+      should == scheme.join(',').to_sym }
 
   end
 end

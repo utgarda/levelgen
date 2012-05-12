@@ -11,6 +11,7 @@ class Stage
   #attr_reader :positions
   attr_reader :trivialSolution
   attr_reader :outline_to_solution
+  attr_reader :trivialSolutionScheme
 
   class PartialSolution
     attr_reader :i, :count, :branches
@@ -68,8 +69,8 @@ class Stage
   def initialize(size, objectLengthRange)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
-
     @line_map_size = @size**2
+
     @emptyCell = [:e, 0].freeze
     @mainObject = [:h, MAIN_OBJ_LENGTH].freeze
     @types      = Set.new [@emptyCell, @mainObject]
@@ -78,7 +79,7 @@ class Stage
 
     @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
     @trivialSolution = composeTrivialSolution().freeze
-    @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
+    @trivialSolutionScheme = objectsMapToScheme(@trivialSolution[1]).freeze
     
     @trivialPartial = PartialSolution.new(@line_map_size, {@trivialSolutionScheme => nil})
     @trivialOutline = @line_map_size
@@ -191,7 +192,8 @@ class Stage
 
   public
   def unpack_scheme(p_scheme)
-    scheme = p_scheme.to_s.split(/,/).map { |s| s ? (s.split //): [] }
+    scheme = p_scheme.to_s.split(/,/ , -1).map { s.split // }
+    #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
     [scheme.slice!(0..@size-1), scheme]
   end
   
