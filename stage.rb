@@ -1,4 +1,5 @@
 #require 'persistence'
+require 'set'
 require './terminal_output.rb'
 
 class Stage
@@ -7,7 +8,7 @@ class Stage
 
   attr_reader :size
   attr_reader :types
-  attr_reader :positions
+  #attr_reader :positions
   attr_reader :trivialSolution
   attr_reader :outline_to_solution
 
@@ -69,7 +70,7 @@ class Stage
 
   end
 
-  def initialize(size, object_length_range, cache)
+  def initialize(size, objectLengthRange)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
     @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
@@ -77,10 +78,9 @@ class Stage
     @trivialSolutionScheme = objectsMapToScheme @trivialSolution[1]
     
     @line_map_size = @size**2
-    @types      = [[:e, 0].freeze]
-    object_length_range.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
+    @types      = Set.new [[:e, 0].freeze]
+    objectLengthRange.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
-    @cache      = cache
     @trivialPartial = PartialSolution.new(@line_map_size, {@trivialSolutionScheme => nil})
     @trivialOutline = @line_map_size
     @outline_to_solution = { @trivialOutline   => @trivialPartial}
@@ -172,28 +172,28 @@ class Stage
     end
   end
 
-  def push_position(objects)
-    rows_scheme     = Array.new(@size) { [] }
-    columns_scheme  = Array.new(@size) { [] }
-    rows_filling    = Array.new(@size) { [] }
-    columns_filling = Array.new(@size) { [] }
-    while objects.size > 0 do
-      type, i = objects.pop 2
-      dir, len = type
-      next if dir == :e
-      y = i / @size
-      x = i % @size
-      if dir == :h
-        rows_scheme[y] << len
-        rows_filling[y] << x
-      else
-        columns_scheme[x] << len
-        columns_filling[x] << y
-      end
-    end
-    @cache.store pack_scheme(rows_scheme, columns_scheme),
-                 pack_filling(rows_filling, columns_filling)
-  end
+  #def push_position(objects)
+  #  rows_scheme     = Array.new(@size) { [] }
+  #  columns_scheme  = Array.new(@size) { [] }
+  #  rows_filling    = Array.new(@size) { [] }
+  #  columns_filling = Array.new(@size) { [] }
+  #  while objects.size > 0 do
+  #    type, i = objects.pop 2
+  #    dir, len = type
+  #    next if dir == :e
+  #    y = i / @size
+  #    x = i % @size
+  #    if dir == :h
+  #      rows_scheme[y] << len
+  #      rows_filling[y] << x
+  #    else
+  #      columns_scheme[x] << len
+  #      columns_filling[x] << y
+  #    end
+  #  end
+  #  @cache.store pack_scheme(rows_scheme, columns_scheme),
+  #               pack_filling(rows_filling, columns_filling)
+  #end
 
   def pack_scheme(rows, columns)
     (rows + columns).map { |x| (x || []).join }.join(",").to_sym
