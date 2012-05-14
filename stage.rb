@@ -71,13 +71,16 @@ class Stage
     @size       = size
     @lineMapSize = @size**2
 
-    @emptyCell = [:e, 0].freeze
-    @mainObject = [:h, MAIN_OBJ_LENGTH].freeze
-    @types      = Set.new [@emptyCell, @mainObject]
-    objectLengthRange.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
+    @types = {@emptyCell = :e0 => [:e, 0].freeze,
+              @mainObject = "h#{MAIN_OBJ_LENGTH}".to_sym => [:h, MAIN_OBJ_LENGTH].freeze
+    }
+    objectLengthRange.each do |i|
+      @types.merge!({ "h#{i}".to_sym => [:h, i].freeze,
+                      "v#{i}".to_sym => [:v, i].freeze })
+    end
     @types.freeze
 
-    @empty_scheme = packScheme(a=Array.new(@size){[]}, a)
+    #@emptyScheme = packScheme(a=Array.new(@size){[]}, a)
     @trivialSolution = composeTrivialSolution().freeze
     @trivialSolutionScheme = objectsMapToScheme(@trivialSolution[1]).freeze
     
@@ -98,11 +101,11 @@ class Stage
           iterateSolutions i+1, emptyCells, lineMap, objects
      else
        ssMap = {}
-       @types.each do |t|
-         unless  t[0]==:e && emptyCells >= MAX_EMPTY_CELLS
+       @types.each_key do |t|
+         unless  t==:e0 && emptyCells >= MAX_EMPTY_CELLS
            nextLineMap = push i, t, lineMap, objects
            if nextLineMap
-             subSolution = iterateSolutions i+1, emptyCells + (t[0] == :e ? 1 : 0), nextLineMap, objects
+             subSolution = iterateSolutions i+1, emptyCells + (t == :e0 ? 1 : 0), nextLineMap, objects
              subSolution.branches.each_key do |subScheme|
                s = addObjectToScheme i, t, subScheme
                ssMap[s]||={}
@@ -123,25 +126,21 @@ class Stage
   end
 
   private
-  def push(i, type, line_map, objects)
-    if 1 == line_map[i]
-      #puts "push: returning nil,  #{i} taken"
+  def push(i, type, lineMap, objects)
+    if 1 == lineMap[i]
       nil
-    elsif (dir, len = type; dir == :e)
+    elsif (dir, len = @types[type]; dir == :e)
       objects << type << i
-      line_map
+      lineMap
     elsif (y = i / @size; x = i % @size; (dir == :h ? x : y) + len > @size) #check if the object fits inside the rectangle
-      #puts "push : returning nil, out of the rectangle"
       nil
-    elsif (cell_nums = Array.new(len) { |k| i + k * (dir == :h ? 1 : @size) };
-    #puts "cell_nums = #{cell_nums.join(',')}";
-    cell_nums.any? { |k| line_map[k] == 1 }) #check if all required space is free
-      #puts "push : returning nil, not all cells free"
+    elsif (cellNums = Array.new(len) { |k| i + k * (dir == :h ? 1 : @size) };
+          cellNums.any? { |k| lineMap[k] == 1 }) #check if all required space is free
       nil
       #other constraints to check?
     else
       objects << type << i
-      fillLine line_map, cell_nums
+      fillLine lineMap, cellNums
     end
   end
 
@@ -157,7 +156,7 @@ class Stage
   end
   
   def addObjectToScheme(i, type, scheme)
-    dir, len = type
+    dir, len = @types[type]
     return scheme if dir == :e
     y = i / @size
     x = i % @size    
@@ -174,7 +173,7 @@ class Stage
     columnsScheme  = Array.new(@size) { [] }
     until objects.empty? do
       type, i = objects.pop 2
-      dir, len = type
+      dir, len = @types[type]
       next if dir == :e
       y = i / @size
       x = i % @size

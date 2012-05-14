@@ -5,9 +5,10 @@ describe Stage do
   describe "Initialization" do
     let(:size) {5}
     let(:range) {2..3}
-    let(:generatedTypes) {[ [:e,0],
-                            [:h,2], [:v,2],
-                            [:h,3], [:v,3]].to_set }
+    let(:generatedTypes) {{ :e0 => [:e,0],
+                            :h2 => [:h,2], :v2 => [:v,2],
+                            :h3 => [:h,3], :v3 => [:v,3]}
+    }
     let(:trivialLineMap){ '00000'\
                           '00000'\
                           '00111'\
@@ -16,7 +17,7 @@ describe Stage do
     # main obj starts at 12  ^ ^ ends at 15
     }
     let(:trivialSolution){
-      [trivialLineMap, [[:h, Stage::MAIN_OBJ_LENGTH],12]]
+      [trivialLineMap, ["h#{Stage::MAIN_OBJ_LENGTH}".to_sym,12] ]
     }
     let(:trivialSolutionScheme){
       scheme = Array.new 10

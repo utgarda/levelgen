@@ -40,8 +40,10 @@ module TerminalOutput
     objects = objects.clone
     until objects.empty?
       type, i = objects.pop 2
-      filler = (horizontal = :h == type[0]) ? '~' : 'i'
-      type[1].times do |x|
+      dir,len = type.to_s.split //, 2
+      len = len.to_i
+      filler = (horizontal = 'h' == dir) ? '~' : 'i'
+      len.times do |x|
         lineMap[ i + x * (horizontal ? 1 : size)] = filler
       end
     end
@@ -59,7 +61,7 @@ module TerminalOutput
     rows.each_index do |r|
       rows[r].each do |len|
         pos  =filling.shift
-        type = [:h, len]
+        type = "h#{len}".to_sym
         k    = r * stage.size + pos
         stage.fillLine line_map, type, k, "~"
       end
@@ -67,7 +69,7 @@ module TerminalOutput
     columns.each_index do |c|
       columns[c].each do |len|
         pos  = filling.shift
-        type = [:v, len]
+        type = "v#{len}".to_sym
         k    = pos * stage.size + c
         stage.fill_line line_map, type, k, "i"
       end
