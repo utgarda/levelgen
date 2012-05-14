@@ -10,8 +10,8 @@ class Stage
   attr_reader :types
   #attr_reader :positions
   attr_reader :trivialSolution
-  attr_reader :outline_to_solution
   attr_reader :trivialSolutionScheme
+  attr_reader :outline_to_solution
 
   class PartialSolution
     attr_reader :i, :count, :branches
@@ -86,7 +86,7 @@ class Stage
     @outline_to_solution = { @trivialOutline   => @trivialPartial}
   end
 
-  def line_map_to_number(i, lineMap)
+  def lineMapToOutline(i, lineMap)
     ((lineMap >> (i)) << 8) + i
   end
 
@@ -94,7 +94,7 @@ class Stage
 
     require 'pp'
 
-    outline_code = line_map_to_number(i, line_map)
+    outline_code = lineMapToOutline(i, line_map)
     # show_outline outline_code
     # pause
      if @outline_to_solution.has_key? outline_code
