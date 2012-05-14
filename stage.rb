@@ -11,7 +11,7 @@ class Stage
   #attr_reader :positions
   attr_reader :trivialSolution
   attr_reader :trivialSolutionScheme
-  attr_reader :outline_to_solution
+  attr_reader :outlineToSolution
 
   class PartialSolution
     attr_reader :i, :count, :branches
@@ -69,7 +69,7 @@ class Stage
   def initialize(size, objectLengthRange)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
-    @line_map_size = @size**2
+    @lineMapSize = @size**2
 
     @emptyCell = [:e, 0].freeze
     @mainObject = [:h, MAIN_OBJ_LENGTH].freeze
@@ -77,56 +77,42 @@ class Stage
     objectLengthRange.each { |i| @types += [[:h, i].freeze, [:v, i].freeze] }
     @types.freeze
 
-    @empty_scheme = pack_scheme(a=Array.new(@size){[]}, a)
+    @empty_scheme = packScheme(a=Array.new(@size){[]}, a)
     @trivialSolution = composeTrivialSolution().freeze
     @trivialSolutionScheme = objectsMapToScheme(@trivialSolution[1]).freeze
     
-    @trivialPartial = PartialSolution.new(@line_map_size, {@trivialSolutionScheme => nil})
-    @trivialOutline = @line_map_size
-    @outline_to_solution = { @trivialOutline   => @trivialPartial}
+    @trivialPartial = PartialSolution.new(@lineMapSize, {@trivialSolutionScheme => nil})
+    @trivialOutline = @lineMapSize
+    @outlineToSolution = { @trivialOutline   => @trivialPartial}
   end
 
   def lineMapToOutline(i, lineMap)
     ((lineMap >> (i)) << 8) + i
   end
 
-  def iterate_solutions(i, empty_cells, line_map, objects)
-
-    require 'pp'
-
-    outline_code = lineMapToOutline(i, line_map)
-    # show_outline outline_code
-    # pause
-     if @outline_to_solution.has_key? outline_code
-       #puts "+"
-       @outline_to_solution[outline_code]
-     elsif i == @line_map_size # - 1
-       puts "Error: cell number #{i} actually reached"
-      pause
-       exit
-     elsif 1 == line_map[i]
-       #puts "--"
-      #@outline_to_solution[outline_code] =
-          iterate_solutions i+1, empty_cells, line_map, objects
+  def iterateSolutions(i, emptyCells, lineMap, objects)
+    outlineCode = lineMapToOutline(i, lineMap)
+     if @outlineToSolution.has_key? outlineCode
+       @outlineToSolution[outlineCode]
+     elsif 1 == lineMap[i]
+          iterateSolutions i+1, emptyCells, lineMap, objects
      else
-       #puts "New outline: i = #{i} , code = #{outline_code}, total outlines: #{@outline_to_solution.keys.size}"
-       #puts "i = #{i}" if @outline_to_solution.size % 1000 == 0 #" , total outlines: #{@outline_to_solution.keys.size}"
-       ss_map = {}
+       ssMap = {}
        @types.each do |t|
-         unless  t[0]==:e && empty_cells >= MAX_EMPTY_CELLS
-           next_line_map = push i, t, line_map, objects
-           if next_line_map
-             sub_solution = iterate_solutions i+1, empty_cells + (t[0] == :e ? 1 : 0), next_line_map, objects
-             sub_solution.branches.each_key do |sub_scheme|
-               s = add_object_to_scheme i, t, sub_scheme
-               ss_map[s]||={}
-               ss_map[s][t] = [sub_solution, sub_scheme]
+         unless  t[0]==:e && emptyCells >= MAX_EMPTY_CELLS
+           nextLineMap = push i, t, lineMap, objects
+           if nextLineMap
+             subSolution = iterateSolutions i+1, emptyCells + (t[0] == :e ? 1 : 0), nextLineMap, objects
+             subSolution.branches.each_key do |subScheme|
+               s = addObjectToScheme i, t, subScheme
+               ssMap[s]||={}
+               ssMap[s][t] = [subSolution, subScheme]
              end
            end
            objects.pop 2
          end
        end
-       @outline_to_solution[outline_code] = ss_map.empty? ? @trivialPartial : PartialSolution.new(i, ss_map)
+       @outlineToSolution[outlineCode] = ssMap.empty? ? @trivialPartial : PartialSolution.new(i, ssMap)
     end
   end
 
@@ -155,64 +141,37 @@ class Stage
       #other constraints to check?
     else
       objects << type << i
-      fill_line line_map, cell_nums
+      fillLine line_map, cell_nums
     end
   end
 
-  #def push_position(objects)
-  #  rows_scheme     = Array.new(@size) { [] }
-  #  columns_scheme  = Array.new(@size) { [] }
-  #  rows_filling    = Array.new(@size) { [] }
-  #  columns_filling = Array.new(@size) { [] }
-  #  while objects.size > 0 do
-  #    type, i = objects.pop 2
-  #    dir, len = type
-  #    next if dir == :e
-  #    y = i / @size
-  #    x = i % @size
-  #    if dir == :h
-  #      rows_scheme[y] << len
-  #      rows_filling[y] << x
-  #    else
-  #      columns_scheme[x] << len
-  #      columns_filling[x] << y
-  #    end
-  #  end
-  #  @cache.store pack_scheme(rows_scheme, columns_scheme),
-  #               pack_filling(rows_filling, columns_filling)
-  #end
-
-  def pack_scheme(rows, columns)
+  def packScheme(rows, columns)
     (rows + columns).map { |x| (x || []).join }.join(",").to_sym
   end
 
-  def pack_filling(rows, columns)
-    (rows + columns).join
-  end
-
   public
-  def unpack_scheme(p_scheme)
-    scheme = p_scheme.to_s.split(/,/ , -1).map { s.split // }
+  def unpackScheme(p_scheme)
+    scheme = p_scheme.to_s.split(/,/ , -1).map {|s| s.split // }
     #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
     [scheme.slice!(0..@size-1), scheme]
   end
   
-  def add_object_to_scheme(i, type, scheme)
+  def addObjectToScheme(i, type, scheme)
     dir, len = type
     return scheme if dir == :e
     y = i / @size
     x = i % @size    
-    rows, columns = unpack_scheme(scheme)
+    rows, columns = unpackScheme(scheme)
     rows ||= []
     columns ||= []    
     (dir == :h ? (rows[y]||=[]) : (columns[x]||=[])).unshift len
-    pack_scheme rows, columns
+    packScheme rows, columns
   end
 
   def objectsMapToScheme(objects)
     objects = objects.clone
-    rows_scheme     = Array.new(@size) { [] }
-    columns_scheme  = Array.new(@size) { [] }
+    rowsScheme     = Array.new(@size) { [] }
+    columnsScheme  = Array.new(@size) { [] }
     until objects.empty? do
       type, i = objects.pop 2
       dir, len = type
@@ -220,17 +179,17 @@ class Stage
       y = i / @size
       x = i % @size
       if dir == :h
-        rows_scheme[y] << len
+        rowsScheme[y] << len
       else
-        columns_scheme[x] << len
+        columnsScheme[x] << len
       end
     end
-    pack_scheme rows_scheme, columns_scheme
+    packScheme rowsScheme, columnsScheme
   end
 
   public
-  def fill_line(line_map, cell_nums)
-    cell_nums.each{|x| line_map|=(1<<x)}
-    line_map
+  def fillLine(lineMap, cell_nums)
+    cell_nums.each{|x| lineMap|=(1<<x)}
+    lineMap
   end
 end

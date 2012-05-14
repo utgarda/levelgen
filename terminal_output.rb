@@ -61,7 +61,7 @@ module TerminalOutput
         pos  =filling.shift
         type = [:h, len]
         k    = r * stage.size + pos
-        stage.fill_line line_map, type, k, "~"
+        stage.fillLine line_map, type, k, "~"
       end
     end
     columns.each_index do |c|
