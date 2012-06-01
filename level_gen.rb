@@ -32,10 +32,9 @@ begin
   #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
   #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
   stage = Stage.new options[:size], 4..4
-  line_map, objects = stage.composeTrivialSolution
 
   RubyProf.start
-  top_solution = stage.iterateSolutions 0, 0, line_map, objects
+  top_solution = stage.iterateSolutions 0
   result = RubyProf.stop
 
   printer = RubyProf::GraphPrinter.new result
@@ -57,6 +56,6 @@ pause
  #pp stage.outline_to_solution[25].branches.keys
   scheme = top_solution.branches.keys[5]
   pp "Scheme: #{scheme}"
-  top_solution.collectPositions(scheme, stage.trivialSolution[1]){|x| renderObjects stage.size, x}
+  top_solution.collectPositions(scheme, stage.trivialSolution.objects){|x| renderObjects stage.size, x}
 end
 

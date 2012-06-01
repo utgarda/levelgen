@@ -12,6 +12,7 @@ class Stage
   attr_reader :trivialSolution
   attr_reader :trivialSolutionScheme
   attr_reader :outlineToSolution
+  attr_reader :mainObject
 
   class PartialSolution
     attr_reader :i, :count, :branches
@@ -66,6 +67,83 @@ class Stage
 
   end
 
+  class Position
+    #@@trivialSolutions = {}
+
+    attr_reader :emptyCells
+    attr_reader :lineMap
+    attr_reader :objects
+
+    def initialize(stage)
+      @stage = stage
+      @size = stage.size
+      @types = stage.types
+      @objects  = []
+      @lineMap = 0
+      @lineMapStack = []
+      @emptyCells = 0
+    end
+
+    def self.trivial_solution(stage)
+      p = Position.new(stage)
+      p.push stage.size * (stage.size / 2 + 1) - MAIN_OBJ_LENGTH, stage.mainObject
+      p
+    end
+
+
+    #def self.trivialSolution(stage)
+    #  @@trivialSolutions[[stage.size,stage.mainObject]] ||= composeTrivialSolution(stage.size, stage.mainObject).freeze
+    #end
+
+    def push(i, type)
+      if 1 == @lineMap[i]
+        nil
+      elsif (type == :e0)
+        @objects << type << i
+        @emptyCells += 1
+        if block_given?
+          yield next_free_position(i+1)
+          pop
+        end
+      elsif (dir,len = @types[type]; (dir == :h ? i % @size : i / @size) + len > @size) #check if the object fits inside the rectangle
+        nil
+      elsif ( step = dir == :h ? 1 : @size;
+              cellNums = Array.new(len) { |k| i + k * step };
+              cellNums.any? { |k| @lineMap[k] == 1 }) #check if all required space is free
+        nil
+        #other constraints to check?
+      else
+        @objects << type << i
+        @lineMapStack << @lineMap
+        cellNums.each{|x| @lineMap|=(1<<x)}
+        if block_given?
+          yield next_free_position(i+1)
+          pop
+        end
+      end
+    end
+
+    def next_free_position(i)
+      i+=1 while 1 == @lineMap[i]
+      i
+    end
+
+    def pop
+      type, i = objects.pop 2
+      if type == :e0
+        @emptyCells-=1
+      else
+        @lineMap = @lineMapStack.pop
+      end
+    end
+
+    #def self.composeTrivialSolution(size, mainObject)
+    #  objects  = []
+    #  lineMap = push size * (size / 2 + 1) - MAIN_OBJ_LENGTH, mainObject, 0, objects
+    #  [lineMap, objects]
+    #end
+  end
+
   def initialize(size, objectLengthRange)
     raise "Even-sized stages not implemented" unless size.odd?
     @size       = size
@@ -81,8 +159,8 @@ class Stage
     @types.freeze
 
     #@emptyScheme = packScheme(a=Array.new(@size){[]}, a)
-    @trivialSolution = composeTrivialSolution().freeze
-    @trivialSolutionScheme = objectsMapToScheme(@trivialSolution[1]).freeze
+    @trivialSolution = Position.new(self).freeze
+    @trivialSolutionScheme = objectsMapToScheme(@trivialSolution.objects).freeze
     
     @trivialPartial = PartialSolution.new(@lineMapSize, {@trivialSolutionScheme => nil})
     @trivialOutline = @lineMapSize
@@ -93,56 +171,31 @@ class Stage
     ((lineMap >> (i)) << 8) + i
   end
 
-  def iterateSolutions(i, emptyCells, lineMap, objects)
-    outlineCode = lineMapToOutline(i, lineMap)
+  def iterateSolutions(i, position = Position.trivial_solution(self))
+    outlineCode = lineMapToOutline(i, position.lineMap)
      if @outlineToSolution.has_key? outlineCode
        @outlineToSolution[outlineCode]
-     elsif 1 == lineMap[i]
-          iterateSolutions i+1, emptyCells, lineMap, objects
+     elsif 1 == position.lineMap[i]
+          iterateSolutions i+1, position
      else
        ssMap = {}
        @types.each_key do |t|
-         unless  t==:e0 && emptyCells >= MAX_EMPTY_CELLS
-           nextLineMap = push i, t, lineMap, objects
-           if nextLineMap
-             subSolution = iterateSolutions i+1, emptyCells + (t == :e0 ? 1 : 0), nextLineMap, objects
+         unless  t==:e0 && position.emptyCells >= MAX_EMPTY_CELLS
+           position.push(i, t) do |next_i|
+             subSolution = iterateSolutions next_i, position
              subSolution.branches.each_key do |subScheme|
                s = addObjectToScheme i, t, subScheme
                ssMap[s]||={}
                ssMap[s][t] = [subSolution, subScheme]
              end
            end
-           objects.pop 2
          end
        end
        @outlineToSolution[outlineCode] = ssMap.empty? ? @trivialPartial : PartialSolution.new(i, ssMap)
     end
   end
 
-  def composeTrivialSolution
-    objects  = []
-    lineMap = push @size * (@size / 2 + 1) - MAIN_OBJ_LENGTH, @mainObject, 0, objects
-    [lineMap, objects]
-  end
 
-  private
-  def push(i, type, lineMap, objects)
-    if 1 == lineMap[i]
-      nil
-    elsif (dir, len = @types[type]; dir == :e)
-      objects << type << i
-      lineMap
-    elsif (y = i / @size; x = i % @size; (dir == :h ? x : y) + len > @size) #check if the object fits inside the rectangle
-      nil
-    elsif (cellNums = Array.new(len) { |k| i + k * (dir == :h ? 1 : @size) };
-          cellNums.any? { |k| lineMap[k] == 1 }) #check if all required space is free
-      nil
-      #other constraints to check?
-    else
-      objects << type << i
-      fillLine lineMap, cellNums
-    end
-  end
 
   def packScheme(rows, columns)
     (rows + columns).map { |x| (x || []).join }.join(",").to_sym
@@ -186,9 +239,4 @@ class Stage
     packScheme rowsScheme, columnsScheme
   end
 
-  public
-  def fillLine(lineMap, cell_nums)
-    cell_nums.each{|x| lineMap|=(1<<x)}
-    lineMap
-  end
 end
