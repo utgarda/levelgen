@@ -159,7 +159,7 @@ class Stage
     @types.freeze
 
     #@emptyScheme = packScheme(a=Array.new(@size){[]}, a)
-    @trivialSolution = Position.new(self).freeze
+    @trivialSolution = Position.trivial_solution(self).freeze
     @trivialSolutionScheme = objectsMapToScheme(@trivialSolution.objects).freeze
     
     @trivialPartial = PartialSolution.new(@lineMapSize, {@trivialSolutionScheme => nil})

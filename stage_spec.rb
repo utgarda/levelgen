@@ -31,7 +31,8 @@ describe Stage do
 
     its(:types){ should == generatedTypes}
 
-    its(:trivialSolution){ should == trivialSolution}
+    its("trivialSolution.objects"){ should ==  trivialSolution[1]}
+    its("trivialSolution.lineMap"){ should ==  trivialLineMap}
 
     its(:trivialSolutionScheme) do
       should == trivialSolutionScheme
