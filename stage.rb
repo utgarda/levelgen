@@ -34,7 +34,7 @@ class Stage
       #puts
       if trivial?
         #puts "Trivial! ---------------------------------------------"
-        yield objects, scheme
+        yield objects
       else
 
         #puts "branches[scheme].values: -----------------------"
