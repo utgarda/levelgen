@@ -3,8 +3,6 @@
 require 'optparse'
 require './terminal_output.rb'
 require './stage.rb'
-#require 'persistence'
-#require './cache.rb'
 require 'ruby-prof'
 
 include TerminalOutput
@@ -22,30 +20,17 @@ begin
     end
   end.parse!
 
-#  init_ncurses(options[:size])
-#  Persistence::init(options)
-
-  pause
-  
-
-  #cache = Cache.new
-  #stage = StageDP.new options[:size], 2..(options[:size]-1), cache
-  #stage = StageDP.new options[:size], (options[:size]-2)..(options[:size]-1), cache
-  stage = Stage.new options[:size], 4..4
+  stage = Stage.new options[:size], 2..(options[:size]-1)
+  #stage = Stage.new options[:size], (options[:size]-2)..(options[:size]-1)
+  #stage = Stage.new options[:size], 4..4
 
   RubyProf.start
-  top_solution = stage.iterateSolutions 0
+  top_solution = stage.iterate_solutions 0
   result = RubyProf.stop
 
   printer = RubyProf::GraphPrinter.new result
   printer.print STDOUT
 
-#  Persistence::get_solution_schemes.each do |p_scheme|
-#    scheme = stage.unpack_scheme(p_scheme)
-#    Persistence::get_solutions(p_scheme).each do |p_filling|
-#      show_position stage, scheme, p_filling.unpack("C*")
-#    end
-#  end
 pause
 #rescue Object => e
 # endwin
@@ -56,6 +41,6 @@ pause
  #pp stage.outline_to_solution[25].branches.keys
   scheme = top_solution.branches.keys[5]
   pp "Scheme: #{scheme}"
-  top_solution.collectPositions(scheme, stage.trivialSolution.objects){|x| renderObjects stage.size, x}
+  top_solution.collect_positions(scheme, stage.trivial_solution.objects){|x| render_objects stage.size, x}
 end
 

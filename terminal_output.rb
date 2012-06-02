@@ -35,8 +35,8 @@ module TerminalOutput
     #wgetch @inner_win
   end
 
-  def renderObjects(size, objects, emptyCell="*")
-    lineMap = Array.new size**2, emptyCell
+  def render_objects(size, objects, empty_cell="*")
+    line_map = Array.new size**2, empty_cell
     objects = objects.clone
     until objects.empty?
       type, i = objects.pop 2
@@ -44,12 +44,12 @@ module TerminalOutput
       len = len.to_i
       filler = (horizontal = 'h' == dir) ? '~' : 'i'
       len.times do |x|
-        lineMap[ i + x * (horizontal ? 1 : size)] = filler
+        line_map[ i + x * (horizontal ? 1 : size)] = filler
       end
     end
     puts "╔#{'═'*size}╗"
-    until lineMap.empty?
-      puts "║#{lineMap.pop(size).join}║"
+    until line_map.empty?
+      puts "║#{line_map.pop(size).join}║"
     end
     puts "╚#{'═'*size}╝"
   end
