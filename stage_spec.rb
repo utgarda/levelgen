@@ -46,5 +46,102 @@ describe Stage do
       subject.objects_map_to_scheme(trivial_solution[1]).should == trivial_solution_scheme
     end
 
-  end
+    let(:trivial_0v3){  '10000'\
+                        '10000'\
+                        '10111'\
+                        '00000'\
+                        '00000'.reverse.to_i 2
+    }
+
+    end
+
+    describe "Position" do
+      let(:size) {5}
+      let(:range) {2..4}
+      let(:trivial_line_map){ '00000'\
+                              '00000'\
+                              '00111'\
+                              '00000'\
+                              '00000'.reverse.to_i 2
+      }
+      let(:trivial_0v3_21h4){ '10000'\
+                              '10000'\
+                              '10111'\
+                              '00000'\
+                              '01111'.reverse.to_i 2
+      }
+      let(:line_map_0v3){ '10000'\
+                          '10000'\
+                          '10000'\
+                          '00000'\
+                          '00000'.reverse.to_i 2
+      }
+      let(:line_map_0h3){ '11100'\
+                          '00000'\
+                          '00000'\
+                          '00000'\
+                          '00000'.reverse.to_i 2
+      }
+      let(:line_map_0h3_8v4){ '11100'\
+                              '00010'\
+                              '00010'\
+                              '00010'\
+                              '00010'.reverse.to_i 2
+      }
+
+      let(:trivial_solution){
+        [trivial_line_map, ["h#{Stage::MAIN_OBJ_LENGTH}".to_sym,12] ]
+      }
+      let(:trivial_solution_scheme){
+        scheme = Array.new 10
+        scheme[2] = Stage::MAIN_OBJ_LENGTH
+        scheme.join(',').to_sym
+      }
+
+      let(:stage){
+        Stage.new(size, range)
+      }
+
+      context "acquired via constructor" do
+        subject { Stage::Position.new(stage) }
+
+        its(:line_map){ should == 0}
+
+        it "inserts new objects without block provided" do
+          subject.push(0, :v3)
+          subject.line_map.should == line_map_0v3
+        end
+
+        it "inserts objects, provides new context to a block, then reverts its state" do
+          subject.push(0, :h3) do |next_free_position|
+            next_free_position.should == 3
+            subject.line_map.should == line_map_0h3
+
+            subject.push(8, :v4) do |next_after_v4|
+              next_after_v4.should == 9
+              subject.line_map.should == line_map_0h3_8v4
+            end
+
+            subject.line_map.should == line_map_0h3
+          end
+          subject.line_map.should == 0
+        end
+      end
+
+      context "acquired via trivial solution factory method" do
+        subject {Stage::Position.trivial_solution(stage)}
+
+        its(:line_map){should == trivial_line_map}
+        its(:objects){should == trivial_solution[1]}
+
+        it "inserts new objects without block provided" do
+          subject.push(0, :v3)
+          subject.push(21, :h4)
+          subject.line_map.should == trivial_0v3_21h4
+        end
+
+      end
+
+    end
+
 end
