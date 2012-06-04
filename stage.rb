@@ -15,10 +15,10 @@ class Stage
 
   class PartialSolution
     attr_reader :i, :count, :branches
-    
+
     def initialize(i, branch_map)
       @i = i
-      @branches = branch_map #mapping object placement variants to sub-task results for the remaining outline
+      @branches = branch_map.freeze #mapping object placement variants to sub-task results for the remaining outline
       @count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
     end
 
@@ -26,19 +26,19 @@ class Stage
       @branches.values == [nil]
     end
 
-    def collect_positions(scheme, objects, &block)
+    def collect_positions(stage, scheme, objects, &block)
       if trivial?
         yield objects
       else
-        branches[scheme].each do |type, sub_solution_sub_scheme|
-          sub_solution, sub_scheme = sub_solution_sub_scheme
-          objects << type << i
-          sub_solution.collect_positions(sub_scheme, objects, &block)
+        branches[scheme].each do |type, outline|
+          sub_solution = stage.outline_to_solution[outline]
+          sub_scheme = stage.left_remove_object_from_scheme(@i, type, scheme)
+          objects << type << @i
+          sub_solution.collect_positions(stage, sub_scheme, objects, &block)
           objects.pop 2
         end
       end
     end
-
   end
 
   class Position
@@ -67,29 +67,31 @@ class Stage
     #end
 
     def push(i, type)
-      if 1 == @line_map[i]
-      elsif type == :e0
-        @objects << type << i
+      return unless check_space(i, type)
+      @objects << type << i
+      if type == :e0
         @empty_cells += 1
-        if block_given?
-          yield next_free_position(i+1)
-          pop
-        end
-      #check if the object fits inside the rectangle
-      elsif (dir,len = @types[type]; (dir == :h ? i % @size : i / @size) + len > @size)
-      elsif ( step = dir == :h ? 1 : @size;
-              cell_nums = Array.new(len) { |k| i + k * step };
-              cell_nums.any? { |k| @line_map[k] == 1 })
-              #check if all required space is free
       else
-        @objects << type << i
+        dir, len = @types[type]
+        step = dir == :h ? 1 : @size
         @line_map_stack << @line_map
-        cell_nums.each{|x| @line_map|=(1<<x)}
-        if block_given?
-          yield next_free_position(i+1)
-          pop
-        end
+        len.times{ |k| @line_map |= (1<< (i + k * step)) }
       end
+      TerminalOutput.render_objects @size, objects, " "
+      if block_given?
+        yield next_free_position(i+1)
+        pop
+      end
+    end
+
+    def check_space(i, type)
+      return false if type == :e0 && @empty_cells >= MAX_EMPTY_CELLS
+      dir, len = @types[type]
+      step = dir == :h ? 1 : @size
+      len.times do |k|
+        return false if @line_map[i + k * step] == 1
+      end
+      true
     end
 
     def next_free_position(i)
@@ -109,52 +111,64 @@ class Stage
 
   def initialize(size, object_length_range)
     raise "Even-sized stages not implemented" unless size.odd?
-    @size       = size
+    @size = size
     @line_map_size = @size**2
 
     @types = {@empty_cell = :e0 => [:e, 0].freeze,
               @main_object = "h#{MAIN_OBJ_LENGTH}".to_sym => [:h, MAIN_OBJ_LENGTH].freeze
     }
     object_length_range.each do |i|
-      @types.merge!({ "h#{i}".to_sym => [:h, i].freeze,
-                      "v#{i}".to_sym => [:v, i].freeze })
+      @types.merge!({"h#{i}".to_sym => [:h, i].freeze,
+                     "v#{i}".to_sym => [:v, i].freeze})
     end
     @types.freeze
 
     @trivial_solution = Position.trivial_solution(self).freeze
     @trivial_solution_scheme = objects_map_to_scheme(@trivial_solution.objects).freeze
-    
     @trivial_partial = PartialSolution.new(@line_map_size, {@trivial_solution_scheme => nil})
     trivial_outline = @line_map_size
-    @outline_to_solution = { trivial_outline   => @trivial_partial}
+    @outline_to_solution = {trivial_outline => @trivial_partial}
+
+    @allowed_types_for_cell=Array.new(@line_map_size) do |i|
+      @types.keys.select { |t|
+        dir,len = @types[t]
+        (t == :e0 || (object_length_range.include? len)) &&
+            (dir == :h ? i % @size : i / @size) + len <= @size && @trivial_solution.check_space(i,t)
+      }
+    end
+    @allowed_types_for_cell.freeze
   end
 
   def line_map_to_outline(i, line_map)
     ((line_map >> (i)) << 8) + i
   end
 
-  def iterate_solutions(i, position = Position.trivial_solution(self))
+  def iterate_solutions(i, position = Position.trivial_solution(self), types_fit = @allowed_types_for_cell)
     outline_code = line_map_to_outline(i, position.line_map)
-     if @outline_to_solution.has_key? outline_code
-       @outline_to_solution[outline_code]
-     else
-       ss_map = {}
-       @types.each_key do |t|
-         unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
-           position.push(i, t) do |next_i|
-             sub_solution = iterate_solutions next_i, position
-             sub_solution.branches.each_key do |subScheme|
-               s = add_object_to_scheme i, t, subScheme
-               ss_map[s]||={}
-               ss_map[s][t] = [sub_solution, subScheme]
-             end
-           end
-         end
-       end
-       @outline_to_solution[outline_code] = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
+    unless @outline_to_solution.has_key? outline_code
+      ss_map = {}
+      types_fit[i].each do |t|
+        unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
+          position.push(i, t) do |next_i|
+            #next_types_fit = (t == :e0 || @types[t][0] == :h) ?
+            #    types_fit[(next_i - i)..-1] :
+            #    Array.new(@line_map_size-next_i) { |k|
+            #      types_fit[k + next_i - i].select { |ft| position.check_space(next_i + k, ft) }
+            #    }
+            sub_solution_outline = iterate_solutions next_i, position#, next_types_fit
+            sub_solution = @outline_to_solution[sub_solution_outline]
+            sub_solution.branches.each_key do |subScheme|
+              s = add_object_to_scheme i, t, subScheme
+              ss_map[s]||={}
+              ss_map[s][t] = sub_solution_outline
+            end
+          end
+        end
+      end
+      @outline_to_solution[outline_code] = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
     end
+    outline_code
   end
-
 
 
   def pack_scheme(rows, columns)
@@ -179,6 +193,17 @@ class Stage
     (dir == :h ? (rows[y]||=[]) : (columns[x]||=[])).unshift len
     pack_scheme rows, columns
   end
+
+  def left_remove_object_from_scheme(i, type, scheme)
+    return scheme if type == :e0
+    dir = @types[type][0]
+    y = i / @size
+    x = i % @size
+    rows, columns = unpack_scheme(scheme)
+    (dir == :h ? rows[y]: columns[x]).shift
+    pack_scheme rows, columns
+  end
+
 
   def objects_map_to_scheme(objects)
     objects = objects.clone

@@ -35,7 +35,7 @@ module TerminalOutput
     #wgetch @inner_win
   end
 
-  def render_objects(size, objects, empty_cell="*")
+  def self.render_objects(size, objects, empty_cell="*")
     line_map = Array.new size**2, empty_cell
     objects = objects.clone
     until objects.empty?

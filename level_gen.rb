@@ -25,7 +25,8 @@ begin
   #stage = Stage.new options[:size], 4..4
 
   RubyProf.start
-  top_solution = stage.iterate_solutions 0
+  top_solution_outline = stage.iterate_solutions 0
+  top_solution = stage.outline_to_solution[top_solution_outline]
   result = RubyProf.stop
 
   printer = RubyProf::GraphPrinter.new result
