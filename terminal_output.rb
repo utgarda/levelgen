@@ -1,7 +1,10 @@
 # encoding: utf-8
 module TerminalOutput
+
   require 'rubygems'
+  require 'term/ansicolor'
   require 'ffi-ncurses'
+  require 'json'
   include FFI::NCurses
 
   def init_ncurses(size)
@@ -36,22 +39,47 @@ module TerminalOutput
   end
 
   def self.render_objects(size, objects, empty_cell="*")
+    columns = 10
+    @@buffer ||= []
+    c = Term::ANSIColor
+    colors = [c.blue + c.on_yellow,
+              c.white + c.on_blue,
+              c.green + c.on_black,
+              c.black + c.on_cyan,
+              c.cyan + c.on_red,
+              c.yellow + c.on_magenta
+    ]
     line_map = Array.new size**2, empty_cell
     objects = objects.clone
+    c = 0
     until objects.empty?
-      type, i = objects.pop 2
+      type, i = objects.shift 2
       dir,len = type.to_s.split //, 2
       len = len.to_i
-      filler = (horizontal = 'h' == dir) ? '~' : 'i'
+      filler = (horizontal = 'h' == dir) ? "~" : "i"
       len.times do |x|
-        line_map[ i + x * (horizontal ? 1 : size)] = filler
+        line_map[ i + x * (horizontal ? 1 : size)] = colors[c%6] + filler + Term::ANSIColor.clear
       end
+      c += 1
     end
-    puts "╔#{'═'*size}╗"
-    until line_map.empty?
-      puts "║#{line_map.pop(size).join}║"
+    if @@buffer.size == columns
+      concatenated = Array.new(size+2){|x| []}
+      @@buffer.each do |map|
+        concatenated[0] << "╔#{'═'*size}╗"
+        l = 1
+        until map.empty?
+          line = "║#{map.pop(size).join}║"
+          concatenated[l] << line
+          l += 1
+        end
+        concatenated[l] << "╚#{'═'*size}╝"
+      end
+      concatenated.each{ |lines|
+        puts lines.join "  "}
+      @@buffer = []
+    else
+      @@buffer << line_map
     end
-    puts "╚#{'═'*size}╝"
   end
 
   #def show_position(stage, scheme, filling, empty_space = "*")

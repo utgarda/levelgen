@@ -42,6 +42,6 @@ pause
  #pp stage.outline_to_solution[25].branches.keys
   scheme = top_solution.branches.keys[5]
   pp "Scheme: #{scheme}"
-  top_solution.collect_positions(scheme, stage.trivial_solution.objects){|x| render_objects stage.size, x}
+  top_solution.collect_positions(stage, scheme, stage.trivial_solution.objects){|x| TerminalOutput.render_objects stage.size, x}
 end
 
