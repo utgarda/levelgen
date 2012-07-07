@@ -171,37 +171,49 @@ class Stage
   end
 
 
-  def pack_scheme(rows, columns)
-    (rows + columns).map! { |x| (x || []).join }.join(",").to_sym
-  end
+  #def self.pack_scheme(rows, columns)
+  #  (rows + columns).map! { |x| (x || []).join }.join(",").to_sym
+  #end
 
   public
-  def unpack_scheme(p_scheme)
-    scheme = p_scheme.to_s.split(/,/ , -1).map! {|s| s.split // }
-    #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
-    [scheme.slice!(0..@size-1), scheme]
-  end
+  #def self.unpack_scheme(p_scheme)
+  #  scheme = p_scheme.to_s.split(/,/ , -1).map! {|s| s.split // }
+  #  #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
+  #  [scheme.slice!(0..@size-1), scheme]
+  #end
   
   def add_object_to_scheme(i, type, scheme)
     dir, len = @types[type]
     return scheme if dir == :e
-    y = i / @size
-    x = i % @size    
-    rows, columns = unpack_scheme(scheme)
-    rows ||= []
-    columns ||= []    
-    (dir == :h ? (rows[y]||=[]) : (columns[x]||=[])).unshift len
-    pack_scheme rows, columns
+    rows, columns = scheme
+    if dir == :h
+      y = i / @size
+      rows = rows.dup
+      rows[y] = rows[y].clone.unshift len
+    else
+      x = i % @size
+      columns = columns.dup
+      columns[x] = columns[x].clone.unshift len
+    end
+    [rows, columns]
   end
 
   def left_remove_object_from_scheme(i, type, scheme)
     return scheme if type == :e0
     dir = @types[type][0]
-    y = i / @size
-    x = i % @size
-    rows, columns = unpack_scheme(scheme)
-    (dir == :h ? rows[y]: columns[x]).shift
-    pack_scheme rows, columns
+    rows, columns = scheme
+    if dir == :h
+      y = i / @size
+      rows = rows.dup
+      rows[y] = rows[y].clone
+      rows[y].shift
+    else
+      x = i % @size
+      columns = columns.dup
+      columns[x] = columns[x].clone
+      columns[x].shift
+    end
+    [rows, columns]
   end
 
 
@@ -221,7 +233,7 @@ class Stage
         columns_scheme[x] << len
       end
     end
-    pack_scheme rows_scheme, columns_scheme
+    [rows_scheme, columns_scheme]
   end
 
 end

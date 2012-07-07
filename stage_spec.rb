@@ -20,9 +20,9 @@ describe Stage do
       [trivial_line_map, ["h#{Stage::MAIN_OBJ_LENGTH}".to_sym,12] ]
     }
     let(:trivial_solution_scheme){
-      scheme = Array.new 10
-      scheme[2] = Stage::MAIN_OBJ_LENGTH
-      scheme.join(',').to_sym
+      rows = Array.new(5){[]}
+      rows[2] <<  Stage::MAIN_OBJ_LENGTH
+      [rows, Array.new(5){[]}]
     }
 
     subject { Stage.new(size, range) }
@@ -93,9 +93,9 @@ describe Stage do
         [trivial_line_map, ["h#{Stage::MAIN_OBJ_LENGTH}".to_sym,12] ]
       }
       let(:trivial_solution_scheme){
-        scheme = Array.new 10
-        scheme[2] = Stage::MAIN_OBJ_LENGTH
-        scheme.join(',').to_sym
+        rows = Array.new(5){[]}
+        rows[2] <<  Stage::MAIN_OBJ_LENGTH
+        [rows, Array.new(5){[]}]
       }
 
       let(:stage){
