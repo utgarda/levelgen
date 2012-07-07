@@ -20,6 +20,7 @@ class Stage
       @i = i
       @branches = branch_map.freeze #mapping object placement variants to sub-task results for the remaining outline
       @count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
+      self.freeze
     end
 
     def trivial?
@@ -146,7 +147,7 @@ class Stage
   def iterate_solutions(i, position = Position.trivial_solution(self), types_fit = @allowed_types_for_cell)
     outline_code = line_map_to_outline(i, position.line_map)
     unless @outline_to_solution.has_key? outline_code
-      ss_map = {}
+      ss_map = Hash.new{|h,k| h[k] = {}}
       types_fit[i].each do |t|
         unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
           position.push(i, t) do |next_i|
@@ -159,7 +160,6 @@ class Stage
             sub_solution = @outline_to_solution[sub_solution_outline]
             sub_solution.branches.each_key do |subScheme|
               s = add_object_to_scheme i, t, subScheme
-              ss_map[s]||={}
               ss_map[s][t] = sub_solution_outline
             end
           end
@@ -172,12 +172,12 @@ class Stage
 
 
   def pack_scheme(rows, columns)
-    (rows + columns).map { |x| (x || []).join }.join(",").to_sym
+    (rows + columns).map! { |x| (x || []).join }.join(",").to_sym
   end
 
   public
   def unpack_scheme(p_scheme)
-    scheme = p_scheme.to_s.split(/,/ , -1).map {|s| s.split // }
+    scheme = p_scheme.to_s.split(/,/ , -1).map! {|s| s.split // }
     #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
     [scheme.slice!(0..@size-1), scheme]
   end
