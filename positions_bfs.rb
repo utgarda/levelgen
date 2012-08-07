@@ -1,4 +1,5 @@
 require 'pp'
+require 'set'
 
 class PositionsBFS
 
@@ -139,6 +140,22 @@ end
         end
       end
     end
+  end
+
+  def bfs(position)
+    known =  Set.new [position]
+    new_found = Set.new
+    begin
+      known.merge new_found
+      new_found.clear
+      known.each do |p|
+        find_adjacent(p) do|adj|
+          new_found << adj.clone unless known.include?(adj) || new_found.include?(adj)
+        end
+      end
+      puts "new found positions : "
+      pp new_found
+    end until new_found.empty?
   end
 
 

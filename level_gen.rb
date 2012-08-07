@@ -56,13 +56,13 @@ pause
     pp "Scheme: #{scheme}"
     TerminalOutput.clean_buffer
   pos = nil
-  #bfs = PositionsBFS.new(stage, scheme)
+  bfs = PositionsBFS.new(stage, scheme)
     top_solution.collect_positions(stage, scheme, stage.trivial_solution.objects) do |x|
-      #puts (pos = bfs.position_from_objects_array(x)).to_s
+      puts (pos = bfs.position_from_objects_array(x)).to_s
       TerminalOutput.render_objects stage.size, x, " ", 1
     end
-  #puts "adjacent positions for #{pos} :"
-  #bfs.find_adjacent(pos){|p| puts p.to_s }
+  puts "reachable positions from #{pos} :"
+  bfs.bfs(pos)
   #end
 end
 
