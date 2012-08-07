@@ -1,10 +1,10 @@
-#require 'persistence'
 require 'set'
 require './terminal_output.rb'
+require './persistence.rb'
 
 class Stage
   MAIN_OBJ_LENGTH = 3
-  MAX_EMPTY_CELLS = 100
+  #MAX_EMPTY_CELLS = 10
 
   attr_reader :size
   attr_reader :types
@@ -18,8 +18,9 @@ class Stage
 
     def initialize(i, branch_map)
       @i = i
+      branch_map.default = nil
       @branches = branch_map.freeze #mapping object placement variants to sub-task results for the remaining outline
-      @count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
+      #@count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
       self.freeze
     end
 
@@ -32,7 +33,7 @@ class Stage
         yield objects
       else
         branches[scheme].each do |type, outline|
-          sub_solution = stage.outline_to_solution[outline]
+          sub_solution = Persistence.get_solution_by_outline outline
           sub_scheme = stage.left_remove_object_from_scheme(@i, type, scheme)
           objects << type << @i
           sub_solution.collect_positions(stage, sub_scheme, objects, &block)
@@ -43,7 +44,7 @@ class Stage
   end
 
   class Position
-    attr_reader :empty_cells
+    #attr_reader :empty_cells
     attr_reader :line_map
     attr_reader :objects
 
@@ -54,7 +55,7 @@ class Stage
       @objects  = []
       @line_map = 0
       @line_map_stack = []
-      @empty_cells = 0
+      #@empty_cells = 0
     end
 
     def self.trivial_solution(stage)
@@ -70,9 +71,9 @@ class Stage
     def push(i, type)
       return unless check_space(i, type)
       @objects << type << i
-      if type == :e0
-        @empty_cells += 1
-      else
+      unless type == :e0
+      #  @empty_cells += 1
+      #else
         dir, len = @types[type]
         step = dir == :h ? 1 : @size
         @line_map_stack << @line_map
@@ -86,8 +87,9 @@ class Stage
     end
 
     def check_space(i, type)
-      return false if type == :e0 && @empty_cells >= MAX_EMPTY_CELLS
+      #return false if type == :e0 && @empty_cells >= MAX_EMPTY_CELLS
       dir, len = @types[type]
+      #len = 1 if type == :e0 #TODO maybe it should be :e1 then
       step = dir == :h ? 1 : @size
       len.times do |k|
         return false if @line_map[i + k * step] == 1
@@ -102,11 +104,11 @@ class Stage
 
     def pop
       type, i = objects.pop 2
-      if type == :e0
-        @empty_cells-=1
-      else
-        @line_map = @line_map_stack.pop
-      end
+      #if type == :e0
+      #  @empty_cells-=1
+      #else
+        @line_map = @line_map_stack.pop unless type == :e0
+      #end
     end
   end
 
@@ -128,7 +130,8 @@ class Stage
     @trivial_solution_scheme = objects_map_to_scheme(@trivial_solution.objects).freeze
     @trivial_partial = PartialSolution.new(@line_map_size, {@trivial_solution_scheme => nil})
     trivial_outline = @line_map_size
-    @outline_to_solution = {trivial_outline => @trivial_partial}
+    #@outline_to_solution = {trivial_outline => @trivial_partial}
+    Persistence.store_solution_for_outline trivial_outline, @trivial_partial
 
     @allowed_types_for_cell=Array.new(@line_map_size) do |i|
       @types.keys.select { |t|
@@ -146,28 +149,49 @@ class Stage
 
   def iterate_solutions(i, position = Position.trivial_solution(self), types_fit = @allowed_types_for_cell)
     outline_code = line_map_to_outline(i, position.line_map)
-    unless @outline_to_solution.has_key? outline_code
-      ss_map = Hash.new{|h,k| h[k] = {}}
-      types_fit[i].each do |t|
-        unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
-          position.push(i, t) do |next_i|
-            #next_types_fit = (t == :e0 || @types[t][0] == :h) ?
-            #    types_fit[(next_i - i)..-1] :
-            #    Array.new(@line_map_size-next_i) { |k|
-            #      types_fit[k + next_i - i].select { |ft| position.check_space(next_i + k, ft) }
-            #    }
-            sub_solution_outline = iterate_solutions next_i, position#, next_types_fit
-            sub_solution = @outline_to_solution[sub_solution_outline]
-            sub_solution.branches.each_key do |subScheme|
-              s = add_object_to_scheme i, t, subScheme
-              ss_map[s][t] = sub_solution_outline
-            end
-          end
-        end
-      end
-      @outline_to_solution[outline_code] = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
+    if Persistence.outline_known? outline_code
+      puts "found existing solution, i = #{i}"
+      return outline_code
     end
+
+    sub_solution_outlines = []
+    types_fit[i].each do |t|
+      #unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
+        position.push(i, t) do |next_i|
+          #GC::Profiler.enable
+          sub_solution_outlines << [t, iterate_solutions(next_i, position)]
+          GC.start
+          #puts "i = #{next_i} , gc report ----------------------------"
+          #puts GC::Profiler.report
+          #puts "i = #{next_i} , gc report end ----------------------------"
+        end
+      #end
+    end
+
+
+    #require 'pp'
+    #puts "i = #{i} , building solution start -------------"
+    #pp ObjectSpace.count_objects
+    #puts "------------------------------------------------"
+
+    ss_map = Hash.new{|h,k| h[k] = {}}
+    sub_solution_outlines.each do |type_and_outline|
+      GC.start
+      t, sub_solution_outline = type_and_outline
+      sub_solution = Persistence.get_solution_by_outline(sub_solution_outline)
+      sub_solution.branches.each_key do |subScheme|
+        #GC.start
+        add_object_to_scheme i, t, subScheme
+        ss_map[subScheme][t] = sub_solution_outline
+      end
+    end
+    solution = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
+    Persistence.store_solution_for_outline outline_code, solution
     outline_code
+  end
+
+  def get_solution_by_outline
+
   end
 
 
@@ -184,18 +208,20 @@ class Stage
   
   def add_object_to_scheme(i, type, scheme)
     dir, len = @types[type]
-    return scheme if dir == :e
+    #return scheme if dir == :e
+    return if dir == :e
     rows, columns = scheme
     if dir == :h
       y = i / @size
-      rows = rows.dup
-      rows[y] = rows[y].clone.unshift len
+      #rows = rows.dup
+      #rows[y] = rows[y].clone.unshift len
+      rows[y].unshift len
     else
       x = i % @size
-      columns = columns.dup
-      columns[x] = columns[x].clone.unshift len
+      #columns = columns.dup
+      #columns[x] = columns[x].clone.unshift len
+      columns[x].unshift len
     end
-    [rows, columns]
   end
 
   def left_remove_object_from_scheme(i, type, scheme)

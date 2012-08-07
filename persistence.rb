@@ -1,25 +1,22 @@
 require 'redis'
 
 module Persistence
-  def self.init(options = nil)
-    $redis = options && options[:socket] ?
-        Redis.new(:path => options[:socket], :timeout => 100) :
-        Redis.new(:timeout => 100)
+  def self.init(options = {})
+    @@redis = options[:socket] ?
+        Redis.new(:path => options[:socket], :timeout => 100, :namespace => options[:namespace]) :
+        Redis.new(:timeout => 100,:namespace => options[:namespace])
   end
 
-  def self.add_solution(p_scheme, p_filling)
-    $redis.sadd :solutions, p_scheme
-    $redis.sadd p_scheme, p_filling
+  def self.outline_known?(outline)
+    @@redis.exists outline
   end
 
-#  def self.store_list(p_scheme)
-
-  def self.get_solution_schemes
-    $redis.smembers :solutions
+  def self.store_solution_for_outline(outline, solution)
+    @@redis.set outline, Marshal.dump(solution)
   end
 
-  def self.get_solutions(p_scheme)
-    $redis.smembers p_scheme
+  def self.get_solution_by_outline(outline)
+    Marshal.load @@redis.get(outline)
   end
 
 end
