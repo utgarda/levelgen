@@ -38,8 +38,11 @@ module TerminalOutput
     #wgetch @inner_win
   end
 
-  def self.render_objects(size, objects, empty_cell="*")
-    columns = 10
+  def self.clean_buffer
+    @@buffer = []
+  end
+
+  def self.render_objects(size, objects, empty_cell="*", columns = 10)
     @@buffer ||= []
     c = Term::ANSIColor
     colors = [c.blue + c.on_yellow,
@@ -62,23 +65,23 @@ module TerminalOutput
       end
       c += 1
     end
-    if @@buffer.size == columns
+
+    @@buffer << line_map
+
+    if @@buffer.size >= columns
       concatenated = Array.new(size+2){|x| []}
       @@buffer.each do |map|
         concatenated[0] << "╔#{'═'*size}╗"
         l = 1
         until map.empty?
-          line = "║#{map.pop(size).join}║"
+          line = "║#{map.shift(size).join}║"
           concatenated[l] << line
           l += 1
         end
         concatenated[l] << "╚#{'═'*size}╝"
       end
-      concatenated.each{ |lines|
-        puts lines.join "  "}
+      concatenated.each{ |lines| puts lines.join "  "}
       @@buffer = []
-    else
-      @@buffer << line_map
     end
   end
 
