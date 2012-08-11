@@ -4,7 +4,7 @@ require './persistence.rb'
 
 class Stage
   MAIN_OBJ_LENGTH = 3
-  #MAX_EMPTY_CELLS = 10
+  MAX_EMPTY_CELLS = 10
 
   attr_reader :size
   attr_reader :types
@@ -34,7 +34,7 @@ class Stage
       else
         branches[scheme].each do |type, outline|
           sub_solution = Persistence.get_solution_by_outline outline
-          sub_scheme = stage.left_remove_object_from_scheme(@i, type, scheme)
+          sub_scheme = stage.pack_scheme stage.left_remove_object_from_scheme(@i, type, stage.unpack_scheme(scheme))
           objects << type << @i
           sub_solution.collect_positions(stage, sub_scheme, objects, &block)
           objects.pop 2
@@ -128,7 +128,7 @@ class Stage
 
     @trivial_solution = Position.trivial_solution(self).freeze
     @trivial_solution_scheme = objects_map_to_scheme(@trivial_solution.objects).freeze
-    @trivial_partial = PartialSolution.new(@line_map_size, {@trivial_solution_scheme => nil})
+    @trivial_partial = PartialSolution.new(@line_map_size, {pack_scheme(@trivial_solution_scheme) => nil})
     trivial_outline = @line_map_size
     #@outline_to_solution = {trivial_outline => @trivial_partial}
     Persistence.store_solution_for_outline trivial_outline, @trivial_partial
@@ -178,11 +178,12 @@ class Stage
     sub_solution_outlines.each do |type_and_outline|
       GC.start
       t, sub_solution_outline = type_and_outline
-      sub_solution = Persistence.get_solution_by_outline(sub_solution_outline)
-      sub_solution.branches.each_key do |subScheme|
+      sub_solution_schemes = Persistence.get_solution_schemes_by_outline(sub_solution_outline)
+      sub_solution_schemes.each do |packed_sub_scheme|
         #GC.start
-        add_object_to_scheme i, t, subScheme
-        ss_map[subScheme][t] = sub_solution_outline
+        scheme = unpack_scheme packed_sub_scheme
+        add_object_to_scheme i, t, scheme
+        ss_map[pack_scheme(scheme)][t] = sub_solution_outline
       end
     end
     solution = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
@@ -190,22 +191,37 @@ class Stage
     outline_code
   end
 
-  def get_solution_by_outline
 
+  def pack_scheme(scheme)
+    packed = 0
+    scheme.each do |half|
+      half.each do |blocks|
+        blocks.each{|b| packed = (packed << 3) | b }
+        packed = (packed << 2) | blocks.size
+      end
+    end
+    packed
   end
 
-
-  #def self.pack_scheme(rows, columns)
-  #  (rows + columns).map! { |x| (x || []).join }.join(",").to_sym
-  #end
-
   public
-  #def self.unpack_scheme(p_scheme)
-  #  scheme = p_scheme.to_s.split(/,/ , -1).map! {|s| s.split // }
-  #  #scheme = p_scheme.to_s.split(/,/).map { s.split // } #early optimization is so evil!
-  #  [scheme.slice!(0..@size-1), scheme]
-  #end
-  
+  def unpack_scheme(packed)
+    rows, columns = [], []
+    [columns, rows].each do |half|
+      @size.times do
+        blocks = []
+        bn = packed & 3
+        packed = packed >> 2
+        bn.times do
+          b = packed & 7
+          packed = packed >> 3
+          blocks.unshift b
+        end
+        half.unshift blocks
+      end
+    end
+    [rows,columns]
+  end
+
   def add_object_to_scheme(i, type, scheme)
     dir, len = @types[type]
     #return scheme if dir == :e
