@@ -183,12 +183,24 @@ class Stage
         #GC.start
         scheme = unpack_scheme packed_sub_scheme
         add_object_to_scheme i, t, scheme
-        ss_map[pack_scheme(scheme)][t] = sub_solution_outline
+        ss_map[pack_scheme(scheme)][t] = sub_solution_outline if check_scheme_constraints(scheme, i)
       end
     end
     solution = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
     Persistence.store_solution_for_outline outline_code, solution
     outline_code
+  end
+
+
+  def check_scheme_constraints(scheme, i)
+    total = 0
+    scheme.each do |half|
+      half.each do |blocks|
+        return false if (blocks_sum = blocks.reduce(&:+) || 0) == @size
+        total += blocks_sum
+      end
+    end
+    (@line_map_size - i - total) <= MAX_EMPTY_CELLS
   end
 
 
