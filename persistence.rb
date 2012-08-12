@@ -9,22 +9,20 @@ module Persistence
   end
 
   def self.outline_known?(outline)
-    @@redis.exists "#{outline}_schemes"
+    @@redis.exists outline
   end
 
-  def self.store_solution_for_outline(outline, solution)
-    @@redis.set "#{outline}_schemes", solution.branches.keys.pack("w*")
-    @@redis.set "#{outline}_everything_else", Marshal.dump([solution.i, solution.branches.values])
+  def self.store_solution_for_outline(outline, ss_map)
+    #TODO get a workaround, connections's lost on hashes sizeed > 600000, or store them one by one
+    @@redis.mapped_hmset outline, ss_map.inject({}) { |h, (k, v)| h[k] = Marshal.dump v; h }
   end
 
-  def self.get_solution_by_outline(outline)
-    keys = @@redis.get("#{outline}_schemes").unpack "w*"
-    i, values = Marshal.load @@redis.get "#{outline}_everything_else"
-    Stage::PartialSolution.new i, Hash[ keys.zip values ]
+  def self.get_type_to_outline_map(outline, packed_scheme)
+    Marshal.load @@redis.hget(outline, packed_scheme)
   end
 
   def self.get_solution_schemes_by_outline(outline)
-    @@redis.get("#{outline}_schemes").unpack "w*"
+    @@redis.hkeys(outline).map(&:to_i)
   end
 
 end

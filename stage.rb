@@ -4,7 +4,7 @@ require './persistence.rb'
 
 class Stage
   MAIN_OBJ_LENGTH = 3
-  MAX_EMPTY_CELLS = 10
+  EMPTY_CELLS_RANGE = 3..100
 
   attr_reader :size
   attr_reader :types
@@ -12,36 +12,6 @@ class Stage
   attr_reader :trivial_solution_scheme
   attr_reader :outline_to_solution
   attr_reader :main_object
-
-  class PartialSolution
-    attr_reader :i, :count, :branches
-
-    def initialize(i, branch_map)
-      @i = i
-      branch_map.default = nil
-      @branches = branch_map.freeze #mapping object placement variants to sub-task results for the remaining outline
-      #@count = trivial? ? 1 : @branches.values.map(&:count).reduce(:+)
-      self.freeze
-    end
-
-    def trivial?
-      @branches.values == [nil]
-    end
-
-    def collect_positions(stage, scheme, objects, &block)
-      if trivial?
-        yield objects
-      else
-        branches[scheme].each do |type, outline|
-          sub_solution = Persistence.get_solution_by_outline outline
-          sub_scheme = stage.pack_scheme stage.left_remove_object_from_scheme(@i, type, stage.unpack_scheme(scheme))
-          objects << type << @i
-          sub_solution.collect_positions(stage, sub_scheme, objects, &block)
-          objects.pop 2
-        end
-      end
-    end
-  end
 
   class Position
     #attr_reader :empty_cells
@@ -64,10 +34,6 @@ class Stage
       p
     end
 
-    #def self.trivialSolution(stage)
-    #  @@trivialSolutions[[stage.size,stage.main_object]] ||= composeTrivialSolution(stage.size, stage.main_object).freeze
-    #end
-
     def push(i, type)
       return unless check_space(i, type)
       @objects << type << i
@@ -79,7 +45,7 @@ class Stage
         @line_map_stack << @line_map
         len.times{ |k| @line_map |= (1<< (i + k * step)) }
       end
-      TerminalOutput.render_objects @size, objects, " "
+      TerminalOutput.render_objects @size, objects, i
       if block_given?
         yield next_free_position(i+1)
         pop
@@ -128,10 +94,9 @@ class Stage
 
     @trivial_solution = Position.trivial_solution(self).freeze
     @trivial_solution_scheme = objects_map_to_scheme(@trivial_solution.objects).freeze
-    @trivial_partial = PartialSolution.new(@line_map_size, {pack_scheme(@trivial_solution_scheme) => nil})
+    @trivial_solutions_map = {pack_scheme(@trivial_solution_scheme) => nil}.freeze
     trivial_outline = @line_map_size
-    #@outline_to_solution = {trivial_outline => @trivial_partial}
-    Persistence.store_solution_for_outline trivial_outline, @trivial_partial
+    Persistence.store_solution_for_outline trivial_outline, @trivial_solutions_map
 
     @allowed_types_for_cell=Array.new(@line_map_size) do |i|
       @types.keys.select { |t|
@@ -143,36 +108,41 @@ class Stage
     @allowed_types_for_cell.freeze
   end
 
+  def collect_positions(outline, packed_scheme, objects, &block)
+    #puts "collect_positions( #{outline} , #{packed_scheme} , #{objects} , &block )"
+    #puts "unpacked_scheme : #{unpack_scheme packed_scheme}"
+    type_to_solution = Persistence.get_type_to_outline_map outline, packed_scheme
+    if type_to_solution.nil?
+      yield objects
+    else
+      i = outline & 63
+      type_to_solution.each do |type, sub_solution_outline|
+        packed_sub_scheme = pack_scheme left_remove_object_from_scheme(i, type, unpack_scheme(packed_scheme))
+        objects << type << i
+        collect_positions sub_solution_outline, packed_sub_scheme, objects, &block
+        objects.pop 2
+      end
+    end
+  end
+
   def line_map_to_outline(i, line_map)
-    ((line_map >> (i)) << 8) + i
+    ((line_map >> (i)) << 6) + i #TODO adjust shift by grid size, 6 is for <= 7x7
   end
 
   def iterate_solutions(i, position = Position.trivial_solution(self), types_fit = @allowed_types_for_cell)
     outline_code = line_map_to_outline(i, position.line_map)
     if Persistence.outline_known? outline_code
-      puts "found existing solution, i = #{i}"
+      print "#{i} "
       return outline_code
     end
 
     sub_solution_outlines = []
     types_fit[i].each do |t|
-      #unless  t==:e0 && position.empty_cells >= MAX_EMPTY_CELLS
         position.push(i, t) do |next_i|
-          #GC::Profiler.enable
           sub_solution_outlines << [t, iterate_solutions(next_i, position)]
           GC.start
-          #puts "i = #{next_i} , gc report ----------------------------"
-          #puts GC::Profiler.report
-          #puts "i = #{next_i} , gc report end ----------------------------"
         end
-      #end
     end
-
-
-    #require 'pp'
-    #puts "i = #{i} , building solution start -------------"
-    #pp ObjectSpace.count_objects
-    #puts "------------------------------------------------"
 
     ss_map = Hash.new{|h,k| h[k] = {}}
     sub_solution_outlines.each do |type_and_outline|
@@ -180,27 +150,27 @@ class Stage
       t, sub_solution_outline = type_and_outline
       sub_solution_schemes = Persistence.get_solution_schemes_by_outline(sub_solution_outline)
       sub_solution_schemes.each do |packed_sub_scheme|
-        #GC.start
         scheme = unpack_scheme packed_sub_scheme
         add_object_to_scheme i, t, scheme
         ss_map[pack_scheme(scheme)][t] = sub_solution_outline if check_scheme_constraints(scheme, i)
       end
     end
-    solution = ss_map.empty? ? @trivial_partial : PartialSolution.new(i, ss_map)
-    Persistence.store_solution_for_outline outline_code, solution
+    Persistence.store_solution_for_outline outline_code, (ss_map.empty? ? @trivial_solutions_map : ss_map)
     outline_code
   end
 
 
   def check_scheme_constraints(scheme, i)
     total = 0
+    nearly_filled = 0
     scheme.each do |half|
       half.each do |blocks|
         return false if (blocks_sum = blocks.reduce(&:+) || 0) == @size
         total += blocks_sum
+        nearly_filled += 1 if blocks_sum == @size - 1
       end
     end
-    (@line_map_size - i - total) <= MAX_EMPTY_CELLS
+    EMPTY_CELLS_RANGE === (@line_map_size - i - total) && nearly_filled < 4
   end
 
 

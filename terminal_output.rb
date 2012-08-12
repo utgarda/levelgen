@@ -42,7 +42,7 @@ module TerminalOutput
     @@buffer = []
   end
 
-  def self.render_objects(size, objects, empty_cell="*", columns = 10)
+  def self.render_objects(size, objects, i = 0, empty_cell=".", columns = 10)
     @@buffer ||= []
     c = Term::ANSIColor
     colors = [c.blue + c.on_yellow,
@@ -52,7 +52,7 @@ module TerminalOutput
               c.cyan + c.on_red,
               c.yellow + c.on_magenta
     ]
-    line_map = Array.new size**2, empty_cell
+    line_map = Array.new(i, empty_cell) + Array.new(size**2 - i, " ")
     objects = objects.clone
     c = 0
     until objects.empty?
@@ -69,6 +69,7 @@ module TerminalOutput
     @@buffer << line_map
 
     if @@buffer.size >= columns
+      puts
       concatenated = Array.new(size+2){|x| []}
       @@buffer.each do |map|
         concatenated[0] << "╔#{'═'*size}╗"
