@@ -12,9 +12,16 @@ module Persistence
     @@redis.exists outline
   end
 
-  def self.store_solution_for_outline(outline, ss_map)
-    #TODO get a workaround, connections's lost on hashes sizeed > 600000, or store them one by one
-    @@redis.mapped_hmset outline, ss_map.inject({}) { |h, (k, v)| h[k] = Marshal.dump v; h }
+  def self.store_sub_solution_for_outline(outline, scheme, type, ss_outline)
+    hash_key = (outline << 151) + scheme
+    @@redis.multi do
+      @@redis.sadd outline, scheme
+      @@redis.hset hash_key, type, ss_outline
+    end
+  end
+
+  def self.store_trivial_if_empty(outline, trivial_scheme)
+    @@redis.sadd outline, trivial_scheme unless @@redis.exists outline
   end
 
   def self.get_type_to_outline_map(outline, packed_scheme)
@@ -22,7 +29,7 @@ module Persistence
   end
 
   def self.get_solution_schemes_by_outline(outline)
-    @@redis.hkeys(outline).map(&:to_i)
+    @@redis.smembers(outline).map(&:to_i)
   end
 
 end

@@ -4,7 +4,7 @@ require './persistence.rb'
 
 class Stage
   MAIN_OBJ_LENGTH = 3
-  EMPTY_CELLS_RANGE = 3..100
+  EMPTY_CELLS_RANGE = 3..30
 
   attr_reader :size
   attr_reader :types
@@ -94,9 +94,10 @@ class Stage
 
     @trivial_solution = Position.trivial_solution(self).freeze
     @trivial_solution_scheme = objects_map_to_scheme(@trivial_solution.objects).freeze
-    @trivial_solutions_map = {pack_scheme(@trivial_solution_scheme) => nil}.freeze
+    @packed_trivial_scheme = pack_scheme(@trivial_solution_scheme).freeze
+    #@trivial_solutions_map = {pack_scheme(@trivial_solution_scheme) => nil}.freeze
     trivial_outline = @line_map_size
-    Persistence.store_solution_for_outline trivial_outline, @trivial_solutions_map
+    Persistence.store_trivial_if_empty trivial_outline, @packed_trivial_scheme
 
     @allowed_types_for_cell=Array.new(@line_map_size) do |i|
       @types.keys.select { |t|
@@ -144,7 +145,7 @@ class Stage
         end
     end
 
-    ss_map = Hash.new{|h,k| h[k] = {}}
+    #ss_map = Hash.new{|h,k| h[k] = {}}
     sub_solution_outlines.each do |type_and_outline|
       GC.start
       t, sub_solution_outline = type_and_outline
@@ -152,10 +153,13 @@ class Stage
       sub_solution_schemes.each do |packed_sub_scheme|
         scheme = unpack_scheme packed_sub_scheme
         add_object_to_scheme i, t, scheme
-        ss_map[pack_scheme(scheme)][t] = sub_solution_outline if check_scheme_constraints(scheme, i)
+        #ss_map[pack_scheme(scheme)][t] = sub_solution_outline
+        if check_scheme_constraints(scheme, i)
+        Persistence.store_sub_solution_for_outline outline_code, pack_scheme(scheme), t, sub_solution_outline
+        end
       end
     end
-    Persistence.store_solution_for_outline outline_code, (ss_map.empty? ? @trivial_solutions_map : ss_map)
+    Persistence.store_trivial_if_empty outline_code, @packed_trivial_scheme
     outline_code
   end
 
