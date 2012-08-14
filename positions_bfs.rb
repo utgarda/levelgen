@@ -142,20 +142,36 @@ end
     end
   end
 
-  def bfs(position)
-    known =  Set.new [position]
-    new_found = Set.new
+  def multi_bfs(positions)
+    # need indexed storage for less intersections checks, so using not just sets
+    known_sets =  positions.map{|p| Set.new [p]}
+    exhausted_indexes, new_found = Set.new, Set.new
     begin
-      known.merge new_found
-      new_found.clear
-      known.each do |p|
-        find_adjacent(p) do|adj|
-          new_found << adj.clone unless known.include?(adj) || new_found.include?(adj)
+      known_sets.each_index do |i|
+        known = known_sets[i]
+        new_found.clear
+        known.each do |p|
+          find_adjacent(p) do |adj|
+            new_found << adj.clone unless known.include?(adj) || new_found.include?(adj)
+          end
+        end
+        known.merge new_found
+
+        if new_found.empty?
+          exhausted_indexes << i
+        else
+          i.times do |j|
+            unless (known_sets[j] & new_found).empty?
+              known_sets[j].merge known
+              known.clear
+              exhausted_indexes << i
+              break
+            end
+          end
         end
       end
-      puts "new found positions : "
-      pp new_found
-    end until new_found.empty?
+    end until exhausted_indexes.size == known_sets.size
+    known_sets
   end
 
 
